@@ -636,8 +636,8 @@ def webhook():
     user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
 
     # ✅ Translate disease_param into English first
-    disease_snow = translate_to_english(disease_input)
-    disease_param = disease_snow.lower
+    disease_param = translate_to_english(disease_input).lower()
+
 
     response_text = "Sorry, I don't understand your request."
 
