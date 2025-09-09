@@ -1,0 +1,1050 @@
+[
+  {
+    "disease_name": "abortion",
+    "slug": "abortion"
+  },
+  {
+    "disease_name": "abuse of older people",
+    "slug": "abuse-of-older-people"
+  },
+  {
+    "disease_name": "adolescent and young adult health",
+    "slug": "adolescent-and-young-adult-health"
+  },
+  {
+    "disease_name": "adolescent pregnancy",
+    "slug": "adolescent-pregnancy"
+  },
+  {
+    "disease_name": "ageing and health",
+    "slug": "ageing-and-health"
+  },
+  {
+    "disease_name": "health",
+    "slug": "ageing-and-health"
+  },
+  {
+    "disease_name": "alcohol",
+    "slug": "alcohol"
+  },
+  {
+    "disease_name": "ambient (outdoor) air pollution",
+    "slug": "ambient-(outdoor)-air-pollution"
+  },
+  {
+    "disease_name": "anaemia",
+    "slug": "anaemia"
+  },
+  {
+    "disease_name": "animal bites",
+    "slug": "animal-bites"
+  },
+  {
+    "disease_name": "antimicrobial resistance",
+    "slug": "antimicrobial-resistance"
+  },
+  {
+    "disease_name": "anxiety disorders",
+    "slug": "anxiety-disorders"
+  },
+  {
+    "disease_name": "arsenic",
+    "slug": "arsenic"
+  },
+  {
+    "disease_name": "asbestos",
+    "slug": "asbestos"
+  },
+  {
+    "disease_name": "assistive technology",
+    "slug": "assistive-technology"
+  },
+  {
+    "disease_name": "asthma",
+    "slug": "asthma"
+  },
+  {
+    "disease_name": "autism",
+    "slug": "autism"
+  },
+  {
+    "disease_name": "bacterial vaginosis",
+    "slug": "bacterial-vaginosis"
+  },
+  {
+    "disease_name": "biodiversity",
+    "slug": "biodiversity"
+  },
+  {
+    "disease_name": "bipolar disorder",
+    "slug": "bipolar-disorder"
+  },
+  {
+    "disease_name": "vision impairment",
+    "slug": "blindness-and-vision-impairment"
+  },
+  {
+    "disease_name": "blood safety",
+    "slug": "blood-safety-and-availability"
+  },
+  {
+    "disease_name": "availability",
+    "slug": "blood-safety-and-availability"
+  },
+  {
+    "disease_name": "botulism",
+    "slug": "botulism"
+  },
+  {
+    "disease_name": "breast cancer",
+    "slug": "breast-cancer"
+  },
+  {
+    "disease_name": "brucellosis",
+    "slug": "brucellosis"
+  },
+  {
+    "disease_name": "burns",
+    "slug": "burns"
+  },
+  {
+    "disease_name": "buruli ulcer",
+    "slug": "buruli-ulcer-(mycobacterium-ulcerans-infection)"
+  },
+  {
+    "disease_name": "mycobacterium ulcerans",
+    "slug": "buruli-ulcer-(mycobacterium-ulcerans-infection)"
+  },
+  {
+    "disease_name": "mycobacterium ulcerans infection",
+    "slug": "buruli-ulcer-(mycobacterium-ulcerans-infection)"
+  },
+  {
+    "disease_name": "campylobacter",
+    "slug": "campylobacter"
+  },
+  {
+    "disease_name": "cancer",
+    "slug": "cancer"
+  },
+  {
+    "disease_name": "candidiasis",
+    "slug": "candidiasis-(yeast-infection)"
+  },
+   {
+    "disease_name": "yeast infection",
+    "slug": "candidiasis-(yeast-infection)"
+  },
+   {
+    "disease_name": "yeast",
+    "slug": "candidiasis-(yeast-infection)"
+  },
+  {
+    "disease_name": "cardiovascular",
+    "slug": "cardiovascular-diseases-(cvds)"
+  },
+  {
+    "disease_name": "cvds",
+    "slug": "cardiovascular-diseases-(cvds)"
+  },
+  {
+    "disease_name": "cervical cancer",
+    "slug": "cervical-cancer"
+  },
+  {
+    "disease_name": "trypanosomiasis",
+    "slug": "chagas-disease-(also-known-as-american-trypanosomiasis)"
+  },
+  {
+    "disease_name": "chagas",
+    "slug": "chagas-disease-(also-known-as-american-trypanosomiasis)"
+  },
+  {
+    "disease_name": "chikungunya",
+    "slug": "chikungunya"
+  },
+  {
+    "disease_name": "child maltreatment",
+    "slug": "child-maltreatment"
+  },
+  {
+    "disease_name": "child mortality",
+    "slug": "child-mortality-(under-5-years)"
+  },
+  {
+    "disease_name": "childhood cancer",
+    "slug": "childhood-cancer"
+  },
+  {
+    "disease_name": "chlamydia",
+    "slug": "chlamydia"
+  },
+  {
+    "disease_name": "cholera",
+    "slug": "cholera"
+  },
+  {
+    "disease_name": "chromoblastomycosis",
+    "slug": "chromoblastomycosis"
+  },
+  {
+    "disease_name": "chronic obstructive pulmonary",
+    "slug": "chronic-obstructive-pulmonary-disease-(copd)"
+  },
+  {
+    "disease_name": "copd",
+    "slug": "chronic-obstructive-pulmonary-disease-(copd)"
+  },
+  {
+    "disease_name": "civil registration and vital statistics",
+    "slug": "civil-registration-and-vital-statistics"
+  },
+  {
+    "disease_name": "climate change",
+    "slug": "climate-change"
+  },
+  {
+    "disease_name": "colorectal cancer",
+    "slug": "colorectal-cancer"
+  },
+  {
+    "disease_name": "commercial determinants of health",
+    "slug": "commercial-determinants-of-health"
+  },
+  {
+    "disease_name": "community-based health insurance",
+    "slug": "community-based-health-insurance"
+  },
+  {
+    "disease_name": "condoms",
+    "slug": "condoms"
+  },
+  {
+    "disease_name": "congenital disorders",
+    "slug": "congenital-disorders"
+  },
+  {
+    "disease_name": "corona virus",
+    "slug": "coronavirus-disease-(covid-19)"
+  },
+  {
+    "disease_name": "corona",
+    "slug": "coronavirus-disease-(covid-19)"
+  },
+  {
+    "disease_name": "covid-19",
+    "slug": "coronavirus-disease-(covid-19)"
+  },
+  {
+    "disease_name": "covid",
+    "slug": "coronavirus-disease-(covid-19)"
+  },
+  {
+    "disease_name": "corporal punishment of children and health",
+    "slug": "corporal-punishment-of-children-and-health"
+  },
+  {
+    "disease_name": "crimean congo haemorrhagic fever",
+    "slug": "crimean-congo-haemorrhagic-fever"
+  },
+  {
+    "disease_name": "hearing loss",
+    "slug": "deafness-and-hearing-loss"
+  },
+  {
+    "disease_name": "deaf",
+    "slug": "deafness-and-hearing-loss"
+  },
+  {
+    "disease_name": "deliberate events",
+    "slug": "deliberate-events"
+  },
+  {
+    "disease_name": "dementia",
+    "slug": "dementia"
+  },
+  {
+    "disease_name": "dengue",
+    "slug": "dengue"
+  },
+  {
+    "disease_name": "depressive disorder",
+    "slug": "depressive-disorder-(depression)"
+  },
+  {
+    "disease_name": "depression",
+    "slug": "depressive-disorder-(depression)"
+  },
+  {
+    "disease_name": "diabetes",
+    "slug": "diabetes"
+  },
+  {
+    "disease_name": "diarrhoeal",
+    "slug": "diarrhoeal-disease"
+  },
+  {
+    "disease_name": "dioxins",
+    "slug": "dioxins"
+  },
+  {
+    "disease_name": "diphtheria",
+    "slug": "diphtheria"
+  },
+  {
+    "disease_name": "disability",
+    "slug": "disability"
+  },
+  {
+    "disease_name": "dracunculiasis",
+    "slug": "dracunculiasis-(guinea-worm-disease)"
+  },
+  {
+    "disease_name": "guinea worm disease",
+    "slug": "dracunculiasis-(guinea-worm-disease)"
+  },
+  {
+    "disease_name": "drinking water",
+    "slug": "drinking-water"
+  },
+  {
+    "disease_name": "drowning",
+    "slug": "drowning"
+  },
+  {
+    "disease_name": "e. coli",
+    "slug": "e.-coli"
+  },
+  {
+    "disease_name": "ebola disease",
+    "slug": "ebola-disease"
+  },
+  {
+    "disease_name": "echinococcosis",
+    "slug": "echinococcosis"
+  },
+  {
+    "disease_name": "enso",
+    "slug": "el-niño-southern-oscillation-(enso)"
+  },
+  {
+    "disease_name": "el niño southern oscillation",
+    "slug": "el-niño-southern-oscillation-(enso)"
+  },
+  {
+    "disease_name": "electricity in health-care facilities",
+    "slug": "electricity-in-health-care-facilities"
+  },
+  {
+    "disease_name": "electronic waste",
+    "slug": "electronic-waste-(e-waste)"
+  },
+  {
+    "disease_name": "e-waste",
+    "slug": "electronic-waste-(e-waste)"
+  },
+  {
+    "disease_name": "emergency contraception",
+    "slug": "emergency-contraception"
+  },
+  {
+    "disease_name": "endometriosis",
+    "slug": "endometriosis"
+  },
+  {
+    "disease_name": "epilepsy",
+    "slug": "epilepsy"
+  },
+  {
+    "disease_name": "essential medicines",
+    "slug": "essential-medicines"
+  },
+  {
+    "disease_name": "falls",
+    "slug": "falls"
+  },
+  {
+    "disease_name": "family planning",
+    "slug": "family-planning/contraception-methods"
+  },
+  {
+    "disease_name": "contraception methods",
+    "slug": "family-planning/contraception-methods"
+  },
+  {
+    "disease_name": "contraception",
+    "slug": "family-planning/contraception-methods"
+  },
+  {
+    "disease_name": "female genital mutilation",
+    "slug": "female-genital-mutilation"
+  },
+  {
+    "disease_name": "food additives",
+    "slug": "food-additives"
+  },
+  {
+    "disease_name": "food safety",
+    "slug": "food-safety"
+  },
+  {
+    "disease_name": "foodborne trematode infections",
+    "slug": "foodborne-trematode-infections"
+  },
+  {
+    "disease_name": "fragility fractures",
+    "slug": "fragility-fractures"
+  },
+  {
+    "disease_name": "free health care policies",
+    "slug": "free-health-care-policies"
+  },
+  {
+    "disease_name": "gambling",
+    "slug": "gambling"
+  },
+  {
+    "disease_name": "gonorrhoea",
+    "slug": "gonorrhoea-(neisseria-gonorrhoeae-infection)"
+  },
+  {
+    "disease_name": "neisseria gonorrhoeae infection",
+    "slug": "gonorrhoea-(neisseria-gonorrhoeae-infection)"
+  },
+  {
+    "disease_name": "guillain barré syndrome",
+    "slug": "guillain-barré-syndrome"
+  },
+  {
+    "disease_name": "health literacy",
+    "slug": "health-literacy"
+  },
+  {
+    "disease_name": "healthcare waste",
+    "slug": "health-care-waste"
+  },
+  {
+    "disease_name": "healthy diet",
+    "slug": "healthy-diet"
+  },
+  {
+    "disease_name": "heat and health",
+    "slug": "heat-and-health"
+  },
+  {
+    "disease_name": "hepatitis a",
+    "slug": "hepatitis-a"
+  },
+  {
+    "disease_name": "hepatitis b",
+    "slug": "hepatitis-b"
+  },
+  {
+    "disease_name": "hepatitis c",
+    "slug": "hepatitis-c"
+  },
+  {
+    "disease_name": "hepatitis d",
+    "slug": "hepatitis-d"
+  },
+  {
+    "disease_name": "hepatitis e",
+    "slug": "hepatitis-e"
+  },
+  {
+    "disease_name": "herpes simplex virus",
+    "slug": "herpes-simplex-virus"
+  },
+  {
+    "disease_name": "hiv",
+    "slug": "hiv-and-aids"
+  },
+  {
+    "disease_name": "aids",
+    "slug": "hiv-and-aids"
+  },
+  {
+    "disease_name": "hiv drug resistance",
+    "slug": "hiv-drug-resistance"
+  },
+  {
+    "disease_name": "household air pollution",
+    "slug": "household-air-pollution"
+  },
+  {
+    "disease_name": "human papillomavirus and cancer",
+    "slug": "human-papillomavirus-and-cancer"
+  },
+  {
+    "disease_name": "human rights",
+    "slug": "human-rights"
+  },
+  {
+    "disease_name": "human t-lymphotropic virus type 1",
+    "slug": "human-t-lymphotropic-virus-type-1"
+  },
+  {
+    "disease_name": "hypertension",
+    "slug": "hypertension"
+  },
+  {
+    "disease_name": "icd-11",
+    "slug": "icd-11"
+  },
+  {
+    "disease_name": "immunization coverage",
+    "slug": "immunization-coverage"
+  },
+  {
+    "disease_name": "infant and young child feeding",
+    "slug": "infant-and-young-child-feeding"
+  },
+  {
+    "disease_name": "infertility",
+    "slug": "infertility"
+  },
+  {
+    "disease_name": "influenza",
+    "slug": "influenza-(avian-and-other-zoonotic)"
+  },
+  {
+    "disease_name": "influenza",
+    "slug": "influenza-(seasonal)"
+  },
+  {
+    "disease_name": "injuries and violence",
+    "slug": "injuries-and-violence"
+  },
+  {
+    "disease_name": "ionizing radiation and health effects",
+    "slug": "ionizing-radiation-and-health-effects"
+  },
+  {
+    "disease_name": "japanese encephalitis",
+    "slug": "japanese-encephalitis"
+  },
+  {
+    "disease_name": "lassa fever",
+    "slug": "lassa-fever"
+  },
+  {
+    "disease_name": "lead poisoning",
+    "slug": "lead-poisoning"
+  },
+  {
+    "disease_name": "legionellosis",
+    "slug": "legionellosis"
+  },
+  {
+    "disease_name": "leishmaniasis",
+    "slug": "leishmaniasis"
+  },
+  {
+    "disease_name": "leprosy",
+    "slug": "leprosy"
+  },
+  {
+    "disease_name": "listeriosis",
+    "slug": "listeriosis"
+  },
+  {
+    "disease_name": "low back pain",
+    "slug": "low-back-pain"
+  },
+  {
+    "disease_name": "lung cancer",
+    "slug": "lung-cancer"
+  },
+  {
+    "disease_name": "lymphatic filariasis",
+    "slug": "lymphatic-filariasis"
+  },
+  {
+    "disease_name": "malaria",
+    "slug": "malaria"
+  },
+  {
+    "disease_name": "malnutrition",
+    "slug": "malnutrition"
+  },
+  {
+    "disease_name": "marburg virus",
+    "slug": "marburg-virus-disease"
+  },
+  {
+    "disease_name": "maternal mortality",
+    "slug": "maternal-mortality"
+  },
+  {
+    "disease_name": "measles",
+    "slug": "measles"
+  },
+  {
+    "disease_name": "meningitis",
+    "slug": "meningitis"
+  },
+  {
+    "disease_name": "menopause",
+    "slug": "menopause"
+  },
+  {
+    "disease_name": "mental disorders",
+    "slug": "mental-disorders"
+  },
+  {
+    "disease_name": "mental health",
+    "slug": "mental-health"
+  },
+  {
+    "disease_name": "mental health at work",
+    "slug": "mental-health-at-work"
+  },
+  {
+    "disease_name": "mental health in emergencies",
+    "slug": "mental-health-in-emergencies"
+  },
+  {
+    "disease_name": "mental health of adolescents",
+    "slug": "mental-health-of-adolescents"
+  },
+  {
+    "disease_name": "mental health of older adults",
+    "slug": "mental-health-of-older-adults"
+  },
+  {
+    "disease_name": "mercury",
+    "slug": "mercury"
+  },
+  {
+    "disease_name": "middle east respiratory syndrome coronavirus (mers-cov)",
+    "slug": "middle-east-respiratory-syndrome-coronavirus-(mers-cov)"
+  },
+  {
+    "disease_name": "headache",
+    "slug": "migraine-and-other-headache-disorders"
+  },
+  {
+    "disease_name": "migraine",
+    "slug": "migraine-and-other-headache-disorders"
+  },
+  {
+    "disease_name": "millennium development goals (mdgs)",
+    "slug": "millennium-development-goals-(mdgs)"
+  },
+  {
+    "disease_name": "mpox",
+    "slug": "mpox"
+  },
+  {
+    "disease_name": "gonorrhoea",
+    "slug": "multi-drug-resistant-gonorrhoea"
+  },
+  {
+    "disease_name": "multiple sclerosis",
+    "slug": "multiple-sclerosis"
+  },
+  {
+    "disease_name": "musculoskeletal health",
+    "slug": "musculoskeletal-health"
+  },
+  {
+    "disease_name": "mycetoma",
+    "slug": "mycetoma"
+  },
+  {
+    "disease_name": "mycotoxins",
+    "slug": "mycotoxins"
+  },
+  {
+    "disease_name": "natural toxins in food",
+    "slug": "natural-toxins-in-food"
+  },
+  {
+    "disease_name": "newborn mortality",
+    "slug": "newborn-mortality"
+  },
+  {
+    "disease_name": "newborns: improving survival and well-being",
+    "slug": "newborns:-improving-survival-and-well-being"
+  },
+  {
+    "disease_name": "nipah virus",
+    "slug": "nipah-virus"
+  },
+  {
+    "disease_name": "noma",
+    "slug": "noma"
+  },
+  {
+    "disease_name": "noncommunicable",
+    "slug": "noncommunicable-diseases"
+  },
+  {
+    "disease_name": "midwifery",
+    "slug": "nursing-and-midwifery"
+  },
+  {
+    "disease_name": "nursing",
+    "slug": "nursing-and-midwifery"
+  },
+  {
+    "disease_name": "obesity",
+    "slug": "obesity-and-overweight"
+  },
+  {
+    "disease_name": "overweight",
+    "slug": "obesity-and-overweight"
+  },
+  {
+    "disease_name": "health workers",
+    "slug": "occupational-health:-health-workers"
+  },
+  {
+    "disease_name": "older children and young adolescent mortality (5 to 14 years)",
+    "slug": "older-children-and-young-adolescent-mortality-(5-to-14-years)"
+  },
+  {
+    "disease_name": "onchocerciasis",
+    "slug": "onchocerciasis"
+  },
+  {
+    "disease_name": "one health",
+    "slug": "one-health"
+  },
+  {
+    "disease_name": "opioid overdose",
+    "slug": "opioid-overdose"
+  },
+  {
+    "disease_name": "oral health",
+    "slug": "oral-health"
+  },
+  {
+    "disease_name": "oropouche",
+    "slug": "oropouche-virus-disease"
+  },
+  {
+    "disease_name": "osteoarthritis",
+    "slug": "osteoarthritis"
+  },
+  {
+    "disease_name": "palliative care",
+    "slug": "palliative-care"
+  },
+  {
+    "disease_name": "parkinson disease",
+    "slug": "parkinson-disease"
+  },
+  {
+    "disease_name": "patient safety",
+    "slug": "patient-safety"
+  },
+  {
+    "disease_name": "pesticide residues in food",
+    "slug": "pesticide-residues-in-food"
+  },
+  {
+    "disease_name": "physical activity",
+    "slug": "physical-activity"
+  },
+  {
+    "disease_name": "plague",
+    "slug": "plague"
+  },
+  {
+    "disease_name": "pneumonia in children",
+    "slug": "pneumonia-in-children"
+  },
+  {
+    "disease_name": "podoconiosis",
+    "slug": "podoconiosis-(non-filarial-lymphoedema)"
+  },
+  {
+    "disease_name": "poliomyelitis",
+    "slug": "poliomyelitis"
+  },
+  {
+    "disease_name": "polycystic ovary syndrome",
+    "slug": "polycystic-ovary-syndrome"
+  },
+  {
+    "disease_name": "post covid-19 condition (long covid)",
+    "slug": "post-covid-19-condition-(long-covid)"
+  },
+  {
+    "disease_name": "post-traumatic stress disorder",
+    "slug": "post-traumatic-stress-disorder"
+  },
+  {
+    "disease_name": "pre-eclampsia",
+    "slug": "pre-eclampsia"
+  },
+  {
+    "disease_name": "prequalification of medicines by who",
+    "slug": "prequalification-of-medicines-by-who"
+  },
+  {
+    "disease_name": "preterm birth",
+    "slug": "preterm-birth"
+  },
+  {
+    "disease_name": "primary health care",
+    "slug": "primary-health-care"
+  },
+  {
+    "disease_name": "protecting workers' health",
+    "slug": "protecting-workers'-health"
+  },
+  {
+    "disease_name": "quality health services",
+    "slug": "quality-health-services"
+  },
+  {
+    "disease_name": "rabies",
+    "slug": "rabies"
+  },
+  {
+    "disease_name": "radon",
+    "slug": "radon"
+  },
+  {
+    "disease_name": "refugee and migrant health",
+    "slug": "refugee-and-migrant-health"
+  },
+  {
+    "disease_name": "refugee and migrant mental health",
+    "slug": "refugee-and-migrant-mental-health"
+  },
+  {
+    "disease_name": "rehabilitation",
+    "slug": "rehabilitation"
+  },
+  {
+    "disease_name": "respiratory syncytial virus",
+    "slug": "respiratory-syncytial-virus-(rsv)"
+  },
+  {
+    "disease_name": "rsv",
+    "slug": "respiratory-syncytial-virus-(rsv)"
+  },
+  {
+    "disease_name": "rheumatic heart disease",
+    "slug": "rheumatic-heart-disease"
+  },
+  {
+    "disease_name": "rheumatoid arthritis",
+    "slug": "rheumatoid-arthritis"
+  },
+  {
+    "disease_name": "rift valley fever",
+    "slug": "rift-valley-fever"
+  },
+  {
+    "disease_name": "ringworm (tinea)",
+    "slug": "ringworm-(tinea)"
+  },
+  {
+    "disease_name": "tinea",
+    "slug": "ringworm-(tinea)"
+  },
+  {
+    "disease_name": "road traffic injuries",
+    "slug": "road-traffic-injuries"
+  },
+  {
+    "disease_name": "rubella",
+    "slug": "rubella"
+  },
+  {
+    "disease_name": "salmonella (non-typhoidal)",
+    "slug": "salmonella-(non-typhoidal)"
+  },
+  {
+    "disease_name": "non-typhoidal",
+    "slug": "salmonella-(non-typhoidal)"
+  },
+  {
+    "disease_name": "sand and dust storms",
+    "slug": "sand-and-dust-storms"
+  },
+  {
+    "disease_name": "sanitation",
+    "slug": "sanitation"
+  },
+  {
+    "disease_name": "scabies",
+    "slug": "scabies"
+  },
+  {
+    "disease_name": "schistosomiasis",
+    "slug": "schistosomiasis"
+  },
+  {
+    "disease_name": "schizophrenia",
+    "slug": "schizophrenia"
+  },
+  {
+    "disease_name": "selfcare for health and well-being",
+    "slug": "self-care-for-health-and-well-being"
+  },
+  {
+    "disease_name": "sepsis",
+    "slug": "sepsis"
+  },
+  {
+    "disease_name": "sexually transmitted infections",
+    "slug": "sexually-transmitted-infections-(stis)"
+  },
+  {
+    "disease_name": "stis",
+    "slug": "sexually-transmitted-infections-(stis)"
+  },
+  {
+    "disease_name": "shingles",
+    "slug": "shingles-(herpes-zoster)"
+  },
+  {
+    "disease_name": "herpes zoster",
+    "slug": "shingles-(herpes-zoster)"
+  },
+  {
+    "disease_name": "sickle cell disease",
+    "slug": "sickle-cell-disease"
+  },
+  {
+    "disease_name": "snakebite envenoming",
+    "slug": "snakebite-envenoming"
+  },
+  {
+    "disease_name": "social determinants of health",
+    "slug": "social-determinants-of-health"
+  },
+  {
+    "disease_name": "sodium reduction",
+    "slug": "sodium-reduction"
+  },
+  {
+    "disease_name": "soil-transmitted helminth infections",
+    "slug": "soil-transmitted-helminth-infections"
+  },
+  {
+    "disease_name": "spinal cord injury",
+    "slug": "spinal-cord-injury"
+  },
+  {
+    "disease_name": "sporotrichosis",
+    "slug": "sporotrichosis"
+  },
+  {
+    "disease_name": "substandard and falsified medical products",
+    "slug": "substandard-and-falsified-medical-products"
+  },
+  {
+    "disease_name": "sugars and dental caries",
+    "slug": "sugars-and-dental-caries"
+  },
+  {
+    "disease_name": "suicide",
+    "slug": "suicide"
+  },
+  {
+    "disease_name": "syphilis",
+    "slug": "syphilis"
+  },
+  {
+    "disease_name": "taeniasis/cysticercosis",
+    "slug": "taeniasis/cysticercosis"
+  },
+  {
+    "disease_name": "tetanus",
+    "slug": "tetanus"
+  },
+  {
+    "disease_name": "the top 10 causes of death",
+    "slug": "the-top-10-causes-of-death"
+  },
+  {
+    "disease_name": "tobacco",
+    "slug": "tobacco"
+  },
+  {
+    "disease_name": "trachoma",
+    "slug": "trachoma"
+  },
+  {
+    "disease_name": "trans fat",
+    "slug": "trans-fat"
+  },
+  {
+    "disease_name": "trichomoniasis",
+    "slug": "trichomoniasis"
+  },
+  {
+    "disease_name": "trypanosomiasis, human african (sleeping sickness)",
+    "slug": "trypanosomiasis,-human-african-(sleeping-sickness)"
+  },
+  {
+    "disease_name": "tuberculosis",
+    "slug": "tuberculosis"
+  },
+  {
+    "disease_name": "tungiasis",
+    "slug": "tungiasis"
+  },
+  {
+    "disease_name": "typhoid",
+    "slug": "typhoid"
+  },
+  {
+    "disease_name": "ultraviolet radiation",
+    "slug": "ultraviolet-radiation"
+  },
+  {
+    "disease_name": "universal health coverage (uhc)",
+    "slug": "universal-health-coverage-(uhc)"
+  },
+  {
+    "disease_name": "urban health",
+    "slug": "urban-health"
+  },
+  {
+    "disease_name": "vector-borne diseases",
+    "slug": "vector-borne-diseases"
+  },
+  {
+    "disease_name": "violence against children",
+    "slug": "violence-against-children"
+  },
+  {
+    "disease_name": "violence against women",
+    "slug": "violence-against-women"
+  },
+  {
+    "disease_name": "west nile virus",
+    "slug": "west-nile-virus"
+  },
+  {
+    "disease_name": "white phosphorus",
+    "slug": "white-phosphorus"
+  },
+  {
+    "disease_name": "yaws",
+    "slug": "yaws"
+  },
+  {
+    "disease_name": "yellow fever",
+    "slug": "yellow-fever"
+  },
+  {
+    "disease_name": "youth violence",
+    "slug": "youth-violence"
+  },
+  {
+    "disease_name": "zika virus",
+    "slug": "zika-virus"
+  },
+  {
+    "disease_name": "zoonoses",
+    "slug": "zoonoses"
+  }
+]
