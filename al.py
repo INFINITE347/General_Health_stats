@@ -1058,7 +1058,7 @@ app = Flask(__name__)
 # -------------------
 # Setup
 # -------------------
-DetectorFactory.seed = 0   # deterministic results from langdetect
+DetectorFactory.seed = 0  # makes langdetect deterministic
 
 # List of Indian language codes
 INDIAN_LANGUAGES = [
@@ -1076,59 +1076,81 @@ INDIAN_LANGUAGES = [
     "ks"   # Kashmiri
 ]
 
-# -------- Load slugs.json dynamically from GitHub --------
+# -------- Dynamic slugs source --------
 SLUGS_URL = "https://raw.githubusercontent.com/INFINITE347/General_Health_stats/main/slugs.json"
 
-def get_slug(disease_param):
+
+def load_slugs():
+    """Fetch disease slugs from remote JSON file."""
     try:
-        response = requests.get(SLUGS_URL, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        return data.get(disease_param.lower())
+        resp = requests.get(SLUGS_URL, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
     except Exception as e:
-        print(f"Error fetching slugs.json: {e}")
-        return None
+        print(f"Error loading slugs.json: {e}")
+        return {}
+
+
+def get_slug(disease_param):
+    """Return slug for a given normalized disease name."""
+    slugs = load_slugs()
+    key = disease_param.strip().lower()
+    return slugs.get(key)
+
 
 # -------------------
 # Translation helpers
 # -------------------
 def translate_to_english(disease_param, detected_lang):
+    """Translate disease_param to English only if detected_lang is Indian."""
     if not disease_param.strip():
         return disease_param
+
     if detected_lang not in INDIAN_LANGUAGES:
-        return disease_param
+        return disease_param  # keep as-is for English or other languages
+
     try:
         url = f"https://api.mymemory.translated.net/get?q={disease_param}&langpair={detected_lang}|en"
         response = requests.get(url, timeout=10)
         data = response.json()
         translated = data.get("responseData", {}).get("translatedText")
-        return translated if translated else disease_param
+        if translated:
+            return translated
+        return disease_param
     except Exception as e:
         print(f"MyMemory translation error: {e}")
         return disease_param
 
+
 def translate_from_english(text, target_lang):
+    """Translate text back only if target_lang is an Indian language."""
     if target_lang not in INDIAN_LANGUAGES or not text.strip():
         return text
+
     try:
         url = f"https://api.mymemory.translated.net/get?q={text}&langpair=en|{target_lang}"
         response = requests.get(url, timeout=10)
         data = response.json()
         translated = data.get("responseData", {}).get("translatedText")
-        return translated if translated else text
+        if translated:
+            return translated
+        return text
     except Exception as e:
         print(f"MyMemory translation back error: {e}")
         return text
 
-# -------- Helper functions --------
+
+# -------- Helper functions to scrape WHO --------
 def fetch_overview(url):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
+
         heading = soup.find(lambda tag: tag.name in ["h2", "h3"] and "overview" in tag.get_text(strip=True).lower())
         if not heading:
             return None
+
         paragraphs = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2", "h3"]:
@@ -1137,20 +1159,28 @@ def fetch_overview(url):
                 txt = sibling.get_text(strip=True)
                 if txt:
                     paragraphs.append(txt)
-        return " ".join(paragraphs) if paragraphs else None
+
+        if paragraphs:
+            return " ".join(paragraphs)
+        return None
     except Exception:
         return None
+
 
 def fetch_symptoms(url, disease_name):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
+
         heading = soup.find(
-            lambda tag: tag.name in ["h2", "h3"] and ("symptoms" in tag.get_text(strip=True).lower() or "signs and symptoms" in tag.get_text(strip=True).lower())
+            lambda tag: tag.name in ["h2", "h3"]
+            and ("symptoms" in tag.get_text(strip=True).lower()
+                 or "signs and symptoms" in tag.get_text(strip=True).lower())
         )
         if not heading:
             return None
+
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2", "h3"]:
@@ -1160,6 +1190,7 @@ def fetch_symptoms(url, disease_name):
                     txt = li.get_text(strip=True)
                     if txt:
                         points.append(f"- {txt}")
+
         if not points:
             for sibling in heading.find_next_siblings():
                 if sibling.name in ["h2", "h3"]:
@@ -1168,20 +1199,28 @@ def fetch_symptoms(url, disease_name):
                     txt = sibling.get_text(strip=True)
                     if txt:
                         points.append(f"- {txt}")
-        return f"The common symptoms of {disease_name.capitalize()} are:\n" + "\n".join(points) if points else None
+
+        if points:
+            return f"The common symptoms of {disease_name.capitalize()} are:\n" + "\n".join(points)
+        return None
     except Exception:
         return None
+
 
 def fetch_treatment(url, disease_name):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
+
         heading = soup.find(
-            lambda tag: tag.name in ["h2", "h3"] and ("treatment" in tag.get_text(strip=True).lower() or "management" in tag.get_text(strip=True).lower())
+            lambda tag: tag.name in ["h2", "h3"]
+            and ("treatment" in tag.get_text(strip=True).lower()
+                 or "management" in tag.get_text(strip=True).lower())
         )
         if not heading:
             return None
+
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2", "h3"]:
@@ -1191,6 +1230,7 @@ def fetch_treatment(url, disease_name):
                     txt = li.get_text(strip=True)
                     if txt:
                         points.append(f"- {txt}")
+
         if not points:
             for sibling in heading.find_next_siblings():
                 if sibling.name in ["h2", "h3"]:
@@ -1199,18 +1239,24 @@ def fetch_treatment(url, disease_name):
                     txt = sibling.get_text(strip=True)
                     if txt:
                         points.append(f"- {txt}")
-        return f"The common treatments for {disease_name.capitalize()} are:\n" + "\n".join(points) if points else None
+
+        if points:
+            return f"The common treatments for {disease_name.capitalize()} are:\n" + "\n".join(points)
+        return None
     except Exception:
         return None
+
 
 def fetch_prevention(url, disease_name):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
+
         heading = soup.find(lambda tag: tag.name in ["h2", "h3"] and "prevention" in tag.get_text(strip=True).lower())
         if not heading:
             return None
+
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2", "h3"]:
@@ -1220,6 +1266,7 @@ def fetch_prevention(url, disease_name):
                     txt = li.get_text(strip=True)
                     if txt:
                         points.append(f"- {txt}")
+
         if not points:
             for sibling in heading.find_next_siblings():
                 if sibling.name in ["h2", "h3"]:
@@ -1228,9 +1275,13 @@ def fetch_prevention(url, disease_name):
                     txt = sibling.get_text(strip=True)
                     if txt:
                         points.append(f"- {txt}")
-        return f"The common prevention methods for {disease_name.capitalize()} are:\n" + "\n".join(points) if points else None
+
+        if points:
+            return f"The common prevention methods for {disease_name.capitalize()} are:\n" + "\n".join(points)
+        return None
     except Exception:
         return None
+
 
 # ---------- WHO Outbreak API ----------
 WHO_API_URL = (
@@ -1248,17 +1299,21 @@ def get_who_outbreak_data():
         response = requests.get(WHO_API_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
+
         if "value" not in data or not data["value"]:
             return None
+
         outbreaks = []
         for item in data["value"][:5]:
             title = item.get("OverrideTitle") or item.get("Title")
             date = item.get("FormattedDate", "Unknown date")
             url = "https://www.who.int" + item.get("ItemDefaultUrl", "")
             outbreaks.append(f"🦠 {title} ({date})\n🔗 {url}")
+
         return outbreaks
     except Exception:
         return None
+
 
 # -------- Flask webhook route --------
 @app.route('/webhook', methods=['POST'])
@@ -1268,39 +1323,65 @@ def webhook():
     params = req["queryResult"].get("parameters", {})
     disease_input = params.get("disease", "").strip()
 
+    # ✅ Detect user input language
     try:
         detected_lang = detect(disease_input) if disease_input else "en"
     except Exception:
         detected_lang = "en"
 
-    disease_param = translate_to_english(disease_input, detected_lang).lower()
+    # ✅ Translate and normalize
+    translated = translate_to_english(disease_input, detected_lang) or ""
+    disease_param = translated.strip().lower()
     user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
 
     response_text = "Sorry, I don't understand your request."
-    slug = get_slug(disease_param)
-    url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}" if slug else None
 
-    if intent_name == "get_disease_overview" and url:
-        overview = fetch_overview(url)
-        response_text = overview or f"Overview not found for {disease_param.capitalize()}. You can read more here: {url}"
-    elif intent_name == "get_symptoms" and url:
-        symptoms = fetch_symptoms(url, disease_param)
-        response_text = symptoms or f"Symptoms not found for {disease_param.capitalize()}. You can read more here: {url}"
-    elif intent_name == "get_treatment" and url:
-        treatment = fetch_treatment(url, disease_param)
-        response_text = treatment or f"Treatment details not found for {disease_param.capitalize()}. You can read more here: {url}"
-    elif intent_name == "get_prevention" and url:
-        prevention = fetch_prevention(url, disease_param)
-        response_text = prevention or f"Prevention methods not found for {disease_param.capitalize()}. You can read more here: {url}"
+    if intent_name == "get_disease_overview":
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            overview = fetch_overview(url)
+            response_text = overview or f"Overview not found for {disease_param.capitalize()}. You can read more here: {url}"
+        else:
+            response_text = f"Disease not found. Make sure to use a valid disease name."
+
+    elif intent_name == "get_symptoms":
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            symptoms = fetch_symptoms(url, disease_param)
+            response_text = symptoms or f"Symptoms not found for {disease_param.capitalize()}. You can read more here: {url}"
+        else:
+            response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    elif intent_name == "get_treatment":
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            treatment = fetch_treatment(url, disease_param)
+            response_text = treatment or f"Treatment details not found for {disease_param.capitalize()}. You can read more here: {url}"
+        else:
+            response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    elif intent_name == "get_prevention":
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            prevention = fetch_prevention(url, disease_param)
+            response_text = prevention or f"Prevention methods not found for {disease_param.capitalize()}. You can read more here: {url}"
+        else:
+            response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
     elif intent_name == "disease_outbreak.general":
         outbreaks = get_who_outbreak_data()
-        response_text = "⚠️ Unable to fetch outbreak data right now." if not outbreaks else "🌍 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
-    elif not url:
-        response_text = f"Sorry, I don't have data for {disease_param.capitalize()}."
+        if not outbreaks:
+            response_text = "⚠️ Unable to fetch outbreak data right now."
+        else:
+            response_text = "🌍 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
 
+    # ✅ Translate response back only if user used Indian language
     response_text = translate_from_english(response_text, user_lang)
+
     return jsonify({"fulfillmentText": response_text})
 
-if __name__ == '__main__':
-    app.run(debug=True)
 
