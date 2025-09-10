@@ -1397,15 +1397,15 @@
 
 
 
-from flask import Flask, request, jsonify
-import requests, datetime, uuid
+from flask import Flask, request, jsonify, send_from_directory
+import requests
 from bs4 import BeautifulSoup
 from langdetect import detect, DetectorFactory
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-import os
+import os, datetime, uuid
 
 app = Flask(__name__)
 
@@ -1416,20 +1416,19 @@ DetectorFactory.seed = 0
 INDIAN_LANGUAGES = ["hi","te","ta","kn","bn","mr","gu","ml","ur","pa","or","ks"]
 SLUGS_URL = "https://raw.githubusercontent.com/INFINITE347/General_Health_stats/main/slugs.json"
 
-# PDF folder in GitHub repo
-PDF_DIR = "generated_pdfs"
+# Render-safe temp directory
+PDF_DIR = "/tmp/generated_pdfs"
 os.makedirs(PDF_DIR, exist_ok=True)
 
 # -------------------
-# Slugs helper
+# Slug Helpers
 # -------------------
 def load_slugs():
     try:
         resp = requests.get(SLUGS_URL, timeout=10)
         resp.raise_for_status()
         return resp.json()
-    except Exception as e:
-        print(f"Error loading slugs.json: {e}")
+    except:
         return {}
 
 def get_slug(disease_param):
@@ -1437,114 +1436,121 @@ def get_slug(disease_param):
     return slugs.get(disease_param.strip().lower())
 
 # -------------------
-# Translation helpers
+# Translation Helpers
 # -------------------
 def translate_to_english(text, detected_lang):
-    if not text.strip() or detected_lang not in INDIAN_LANGUAGES:
-        return text
+    if detected_lang not in INDIAN_LANGUAGES: return text
     try:
         url = f"https://api.mymemory.translated.net/get?q={text}&langpair={detected_lang}|en"
-        response = requests.get(url, timeout=10).json()
-        return response.get("responseData", {}).get("translatedText", text)
-    except Exception:
+        r = requests.get(url, timeout=10).json()
+        return r.get("responseData", {}).get("translatedText", text)
+    except:
         return text
 
 def translate_from_english(text, target_lang):
-    if not text.strip() or target_lang not in INDIAN_LANGUAGES:
-        return text
+    if target_lang not in INDIAN_LANGUAGES: return text
     try:
         url = f"https://api.mymemory.translated.net/get?q={text}&langpair=en|{target_lang}"
-        response = requests.get(url, timeout=10).json()
-        return response.get("responseData", {}).get("translatedText", text)
-    except Exception:
+        r = requests.get(url, timeout=10).json()
+        return r.get("responseData", {}).get("translatedText", text)
+    except:
         return text
 
 # -------------------
 # WHO Scrapers
 # -------------------
-def fetch_section(url, keyword):
+def fetch_overview(url):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text,"html.parser")
-        heading = soup.find(lambda tag: tag.name in ["h2","h3"] and keyword in tag.get_text(strip=True).lower())
-        if not heading: return None
-        points=[]
-        for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2","h3"]: break
-            if sibling.name=="ul":
-                for li in sibling.find_all("li"):
-                    txt=li.get_text(strip=True)
+        h = soup.find(lambda tag: tag.name in ["h2","h3"] and "overview" in tag.get_text(strip=True).lower())
+        if not h: return None
+        paras = []
+        for sib in h.find_next_siblings():
+            if sib.name in ["h2","h3"]: break
+            if sib.name=="p": paras.append(sib.get_text(strip=True))
+        return " ".join(paras) if paras else None
+    except: return None
+
+def fetch_points(url, keyword, disease_name, title_prefix):
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text,"html.parser")
+        h = soup.find(lambda tag: tag.name in ["h2","h3"] and keyword in tag.get_text(strip=True).lower())
+        if not h: return None
+        points = []
+        for sib in h.find_next_siblings():
+            if sib.name in ["h2","h3"]: break
+            if sib.name=="ul":
+                for li in sib.find_all("li"):
+                    txt = li.get_text(strip=True)
                     if txt: points.append(f"- {txt}")
-            elif sibling.name=="p":
-                txt=sibling.get_text(strip=True)
+            elif sib.name=="p":
+                txt = sib.get_text(strip=True)
                 if txt: points.append(f"- {txt}")
-        return "\n".join(points) if points else None
-    except:
-        return None
+        return f"{title_prefix} {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+    except: return None
 
-def fetch_overview(url): return fetch_section(url,"overview")
-def fetch_symptoms(url, disease_name):
-    data = fetch_section(url,"symptoms")
-    return f"The common symptoms of {disease_name.capitalize()} are:\n{data}" if data else None
-def fetch_treatment(url, disease_name):
-    data = fetch_section(url,"treatment")
-    return f"The common treatments for {disease_name.capitalize()} are:\n{data}" if data else None
-def fetch_prevention(url, disease_name):
-    data = fetch_section(url,"prevention")
-    return f"The common prevention methods for {disease_name.capitalize()} are:\n{data}" if data else None
+def fetch_symptoms(url,disease_name): return fetch_points(url,"symptoms",disease_name,"The common symptoms of")
+def fetch_treatment(url,disease_name): return fetch_points(url,"treatment",disease_name,"The common treatments for")
+def fetch_prevention(url,disease_name): return fetch_points(url,"prevention",disease_name,"The common prevention methods for")
 
 # -------------------
-# WHO Outbreak API
+# WHO Outbreak
 # -------------------
-WHO_API_URL = ("https://www.who.int/api/emergencies/diseaseoutbreaknews"
-               "?sf_provider=dynamicProvider372&sf_culture=en"
-               "&$orderby=PublicationDateAndTime%20desc"
-               "&$expand=EmergencyEvent"
-               "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
-               "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
-               "&%24format=json&%24top=10&%24count=true")
-
+WHO_API_URL = (
+    "https://www.who.int/api/emergencies/diseaseoutbreaknews"
+    "?sf_provider=dynamicProvider372&sf_culture=en"
+    "&$orderby=PublicationDateAndTime%20desc"
+    "&$expand=EmergencyEvent"
+    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
+    "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
+    "&%24format=json&%24top=10&%24count=true"
+)
 def get_who_outbreak_data():
     try:
-        resp = requests.get(WHO_API_URL, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+        r = requests.get(WHO_API_URL, timeout=10)
+        r.raise_for_status()
+        data = r.json()
         if "value" not in data or not data["value"]: return None
-        outbreaks=[]
+        out = []
         for item in data["value"][:5]:
             title = item.get("OverrideTitle") or item.get("Title")
             date = item.get("FormattedDate","Unknown date")
             url = "https://www.who.int"+item.get("ItemDefaultUrl","")
-            outbreaks.append(f"🦠 {title} ({date})\n🔗 {url}")
-        return outbreaks
+            out.append(f"🦠 {title} ({date})\n🔗 {url}")
+        return out
     except: return None
 
 # -------------------
 # Polio Schedule
 # -------------------
 def build_polio_schedule(birth_date):
-    schedule=[]
-    schedule.append(("At Birth (within 15 days)", birth_date,"OPV-0"))
-    schedule.append(("6 Weeks", birth_date + datetime.timedelta(weeks=6),"OPV-1 + IPV-1"))
-    schedule.append(("10 Weeks", birth_date + datetime.timedelta(weeks=10),"OPV-2"))
-    schedule.append(("14 Weeks", birth_date + datetime.timedelta(weeks=14),"OPV-3 + IPV-2"))
-    schedule.append(("16–24 Months", birth_date + datetime.timedelta(weeks=72),"OPV + IPV Boosters"))
-    schedule.append(("5 Years", birth_date + datetime.timedelta(weeks=260),"OPV Booster"))
-    return schedule
+    sched=[]
+    sched.append(("At Birth (within 15 days)", birth_date, "OPV-0"))
+    sched.append(("6 Weeks", birth_date + datetime.timedelta(weeks=6), "OPV-1 + IPV-1"))
+    sched.append(("10 Weeks", birth_date + datetime.timedelta(weeks=10), "OPV-2"))
+    sched.append(("14 Weeks", birth_date + datetime.timedelta(weeks=14), "OPV-3 + IPV-2"))
+    sched.append(("16–24 Months", birth_date + datetime.timedelta(weeks=72), "OPV + IPV Boosters"))
+    sched.append(("5 Years", birth_date + datetime.timedelta(weeks=260), "OPV Booster"))
+    return sched
 
 # -------------------
 # PDF Generator
 # -------------------
 def generate_pdf(filename,schedule):
     filepath=os.path.join(PDF_DIR,filename)
-    doc = SimpleDocTemplate(filepath,pagesize=A4)
-    styles = getSampleStyleSheet()
-    elements = [Paragraph("🧾 Polio Vaccination Schedule", styles['Title']), Spacer(1,12)]
+    doc=SimpleDocTemplate(filepath,pagesize=A4)
+    styles=getSampleStyleSheet()
+    elements=[]
+    elements.append(Paragraph("Polio Vaccination Schedule",styles['Title']))
+    elements.append(Spacer(1,12))
     data=[["Period","Date","Vaccine"]]
     for period,date,vaccine in schedule:
         data.append([period,date.strftime("%d-%b-%Y"),vaccine])
-    table = Table(data,colWidths=[150,150,150])
+    table=Table(data,colWidths=[150,150,150])
     table.setStyle(TableStyle([
         ('BACKGROUND',(0,0),(-1,0),colors.lightblue),
         ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
@@ -1555,107 +1561,95 @@ def generate_pdf(filename,schedule):
     ]))
     elements.append(table)
     doc.build(elements)
-    return filename
+    return filepath
 
 # -------------------
-# Webhook
+# Flask Routes
 # -------------------
-@app.route("/webhook",methods=["POST"])
+@app.route('/download/<filename>')
+def download_file(filename):
+    return send_from_directory(PDF_DIR, filename, as_attachment=True)
+
+@app.route('/webhook',methods=['POST'])
 def webhook():
     req=request.get_json()
-    intent_name=req["queryResult"]["intent"]["displayName"]
+    intent=req["queryResult"]["intent"]["displayName"]
     params=req["queryResult"].get("parameters",{})
-    disease_input=params.get("disease","").strip()
-    try: detected_lang=detect(disease_input) if disease_input else "en"
+    disease=params.get("disease","").strip()
+    try: detected_lang=detect(disease) if disease else "en"
     except: detected_lang="en"
-    translated=translate_to_english(disease_input,detected_lang)
-    disease_param=translated.strip().lower()
-    user_lang=detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
+    disease_en=translate_to_english(disease, detected_lang).strip().lower()
+    user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
     response_text="Sorry, I don't understand your request."
 
-    # --- Disease Overview ---
-    if intent_name=="get_disease_overview":
-        slug=get_slug(disease_param)
+    # --- Overview ---
+    if intent=="get_disease_overview":
+        slug=get_slug(disease_en)
         if slug:
             url=f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            overview=fetch_overview(url)
-            response_text=overview or f"Overview not found for {disease_param.capitalize()}. More: {url}"
-        else: response_text="Disease not found."
+            response_text=fetch_overview(url) or f"Overview not found for {disease_en.capitalize()}. More: {url}"
+        else: response_text=f"Disease not found."
 
     # --- Symptoms ---
-    elif intent_name=="get_symptoms":
-        slug=get_slug(disease_param)
+    elif intent=="get_symptoms":
+        slug=get_slug(disease_en)
         if slug:
             url=f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            symptoms=fetch_symptoms(url,disease_param)
-            response_text=symptoms or f"Symptoms not found. More: {url}"
-        else: response_text=f"URL not found for {disease_param.capitalize()}."
+            response_text=fetch_symptoms(url,disease_en) or f"Symptoms not found for {disease_en.capitalize()}. More: {url}"
 
     # --- Treatment ---
-    elif intent_name=="get_treatment":
-        slug=get_slug(disease_param)
+    elif intent=="get_treatment":
+        slug=get_slug(disease_en)
         if slug:
             url=f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            treatment=fetch_treatment(url,disease_param)
-            response_text=treatment or f"Treatment not found. More: {url}"
-        else: response_text=f"URL not found for {disease_param.capitalize()}."
+            response_text=fetch_treatment(url,disease_en) or f"Treatment not found for {disease_en.capitalize()}. More: {url}"
 
     # --- Prevention ---
-    elif intent_name=="get_prevention":
-        slug=get_slug(disease_param)
+    elif intent=="get_prevention":
+        slug=get_slug(disease_en)
         if slug:
             url=f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            prevention=fetch_prevention(url,disease_param)
-            response_text=prevention or f"Prevention not found. More: {url}"
-        else: response_text=f"URL not found for {disease_param.capitalize()}."
+            response_text=fetch_prevention(url,disease_en) or f"Prevention not found for {disease_en.capitalize()}. More: {url}"
 
     # --- Outbreak ---
-    elif intent_name=="disease_outbreak.general":
+    elif intent=="disease_outbreak.general":
         outbreaks=get_who_outbreak_data()
-        if not outbreaks: response_text="⚠️ Unable to fetch outbreak data."
-        else: response_text="🌍 Latest WHO Outbreak News:\n\n"+"\n\n".join(outbreaks)
+        response_text="⚠️ Unable to fetch outbreak data." if not outbreaks else "🌍 Latest WHO Outbreak News:\n\n"+ "\n\n".join(outbreaks)
 
-    # --- Vaccine Schedule ---
-    elif intent_name=="get_vaccine":
-        vaccine_name=params.get("vaccine_name","").lower()
+    # --- Vaccine ---
+    elif intent=="get_vaccine":
+        vaccine=params.get("vaccine_name","").lower()
         date_str=params.get("date")
-        if vaccine_name=="polio" and date_str:
-            birth_date=datetime.datetime.strptime(date_str,"%Y-%m-%d").date()
-            schedule=build_polio_schedule(birth_date)
-            
-            # Generate PDF
+        if vaccine=="polio" and date_str:
+            birth_date=datetime.datetime.strptime(date_str[:10],"%Y-%m-%d").date()
+            sched=build_polio_schedule(birth_date)
+            lines=["🧾 POLIO VACCINATION SCHEDULE"]
+            lines.append("\n1️⃣ Vaccine Name 🧪\n👉 Oral Polio Vaccine (OPV) + Injectable Polio Vaccine (IPV)")
+            lines.append("\n2️⃣ Period of Time / Age ⏳\n👉 From birth up to 5 years")
+            lines.append("\n3️⃣ Vaccination Date & Last Date 📅")
+            for period,date,vaccine_name in sched:
+                lines.append(f"- {period}: {date.strftime('%d-%b-%Y')} → {vaccine_name}")
+            lines.append("\n4️⃣ Disease & Symptoms ⚠️\n👉 Polio causes fever 🤒, weakness 😴, headache 🤕, vomiting 🤮, stiffness 🧍‍♂️, paralysis 🚶‍♂️❌")
+            lines.append("\n5️⃣ About the Vaccine ℹ️\n👉 OPV (oral drops) 👅, IPV (injection) 💉, free under Govt.")
+            lines.append("\n6️⃣ Purpose 🎯\n👉 Prevents life-long paralysis & disability.")
+            lines.append("\n7️⃣ Gender 👦👧\n👉 For all children.")
+            lines.append("\n8️⃣ Where to Get 🏥\n👉 Govt hospitals, PHCs, Anganwadis, ASHA workers.")
+            lines.append("\n9️⃣ Side Effects ⚠️\n👉 Safe 👍; rarely mild fever. Consult doctor if severe 🚑")
+            lines.append("\n🔟 After Vaccination ✅\n👉 Feed normally 🍼, stay 30 mins at centre, don’t skip future doses.")
+            lines.append(f"\n1️⃣1️⃣ Next Dose Reminder ⏰\n👉 Next after birth dose: {sched[1][1].strftime('%d-%b-%Y')} (OPV-1 + IPV-1)")
+            lines.append("\n1️⃣2️⃣ Pulse Polio Campaign 📢\n👉 Even if vaccinated, attend Pulse Polio days.")
             filename=f"polio_schedule_{birth_date}_{uuid.uuid4().hex[:6]}.pdf"
-            generate_pdf(filename,schedule)
-            download_link=f"https://raw.githubusercontent.com/INFINITE347/General_Health_stats/main/generated_pdfs/{filename}"
-
-            # Build response
-            lines=[
-                "🧾 POLIO VACCINATION SCHEDULE",
-                "\n1️⃣ Vaccine Name 🧪\n👉 Oral Polio Vaccine (OPV) + Injectable Polio Vaccine (IPV)",
-                "\n2️⃣ Period of Time / Age ⏳\n👉 From birth up to 5 years",
-                "\n3️⃣ Vaccination Date & Last Date 📅"
-            ]
-            for period,date,vaccine in schedule:
-                lines.append(f"- {period}: {date.strftime('%d-%b-%Y')} → {vaccine}")
-            lines.extend([
-                "\n4️⃣ Disease & Symptoms ⚠️\n👉 Polio causes fever 🤒, weakness 😴, headache 🤕, vomiting 🤮, stiffness 🧍‍♂️, paralysis 🚶‍♂️❌",
-                "\n5️⃣ About the Vaccine ℹ️\n👉 OPV (oral drops) 👅, IPV (injection) 💉, free under Govt.",
-                "\n6️⃣ Purpose 🎯\n👉 Prevents life-long paralysis & disability.",
-                "\n7️⃣ Gender 👦👧\n👉 For all children.",
-                "\n8️⃣ Where to Get 🏥\n👉 Govt hospitals, PHCs, Anganwadis, ASHA workers.",
-                "\n9️⃣ Side Effects ⚠️\n👉 Safe 👍; rarely mild fever. Consult doctor if severe 🚑",
-                "\n🔟 After Vaccination ✅\n👉 Feed normally 🍼, stay 30 mins at centre, don’t skip future doses.",
-                f"\n1️⃣1️⃣ Next Dose Reminder ⏰\n👉 Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} (OPV-1 + IPV-1)",
-                "\n1️⃣2️⃣ Pulse Polio Campaign 📢\n👉 Even if vaccinated, attend Pulse Polio days.",
-                f"\n📄 Download PDF: {download_link}"
-            ])
+            generate_pdf(filename,sched)
+            download_link=f"{request.host_url}download/{filename}"
+            lines.append(f"\n📄 Download PDF: {download_link}")
             response_text="\n".join(lines)
             response_text=translate_from_english(response_text,user_lang)
 
-    return jsonify({"fulfillmentText":response_text})
+    return jsonify({"fulfillmentText": response_text})
 
 if __name__=="__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0",port=5000,debug=True)
+
 
 
 
