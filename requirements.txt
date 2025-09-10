@@ -6,3 +6,4 @@ lxml
 langdetect
 google-auth
 reportlab
+python-dateutil
