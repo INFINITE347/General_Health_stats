@@ -375,6 +375,53 @@ def translate_from_english(text, target_lang):
 # -------------------
 # WHO scraping helpers
 # -------------------
+def fetch_overview(url):
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        heading = soup.find(
+            lambda tag: tag.name in ["h2", "h3"] and "overview" in tag.get_text(strip=True).lower()
+        )
+        if not heading:
+            return None
+
+        paragraphs = []
+        for sibling in heading.find_next_siblings():
+            if sibling.name in ["h2", "h3"]:
+                break
+            if sibling.name == "p":
+                txt = sibling.get_text(strip=True)
+                if txt:
+                    paragraphs.append(txt)
+
+        if not paragraphs:
+            return None
+
+        text = " ".join(paragraphs)
+        sentences = re.split(r'(?<=[.!?]) +', text)
+
+        summary = []
+        total_len = 0
+        for s in sentences:
+            if len(summary) >= 5:
+                break
+            if len(s) < 30:  # skip short sentences
+                continue
+            next_len = total_len + len(s) + 3
+            if next_len > 490:
+                break
+            summary.append(s.strip())
+            total_len = next_len
+
+        if summary:
+            return "\n".join([f"- {s}" for s in summary])
+        else:
+            return text[:487].rsplit(" ", 1)[0] + "..."
+    except Exception:
+        return None
+
 def fetch_symptoms(url, disease_name):
     try:
         r = requests.get(url, timeout=10); r.raise_for_status()
