@@ -375,26 +375,6 @@ def translate_from_english(text, target_lang):
 # -------------------
 # WHO scraping helpers
 # -------------------
-def fetch_overview(url):
-    try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
-        heading = soup.find(lambda tag: tag.name in ["h2", "h3"] and "overview" in tag.get_text(strip=True).lower())
-        if not heading:
-            return None
-        paragraphs = []
-        for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2", "h3"]: break
-            if sibling.name == "p":
-                txt = sibling.get_text(strip=True)
-                if txt: paragraphs.append(txt)
-        # Take first 5 sentences or truncate to ~490 chars
-        text = " ".join(paragraphs)[:490] if paragraphs else None
-        return text
-    except Exception:
-        return None
-
 def fetch_symptoms(url, disease_name):
     try:
         r = requests.get(url, timeout=10); r.raise_for_status()
@@ -407,14 +387,14 @@ def fetch_symptoms(url, disease_name):
             if sibling.name == "ul":
                 for li in sibling.find_all("li"):
                     txt = li.get_text(strip=True)
-                    if txt: points.append(f"- {txt}")
+                    if txt: points.append(f"🔹 {txt}")
         if not points:
             for sibling in heading.find_next_siblings():
                 if sibling.name in ["h2","h3"]: break
                 if sibling.name == "p":
                     txt = sibling.get_text(strip=True)
-                    if txt: points.append(f"- {txt}")
-        return f"Symptoms of {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+                    if txt: points.append(f"🔹 {txt}")
+        return f"Symptoms for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
     except Exception:
         return None
 
@@ -422,7 +402,7 @@ def fetch_treatment(url, disease_name):
     try:
         r = requests.get(url, timeout=10); r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-        heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "treatment" in tag.get_text(strip=True).lower())
+        heading = soup.find(lambda tag: tag.name in ["h2","h3"] and ("treatment" in tag.get_text(strip=True).lower() or "management" in tag.get_text(strip=True).lower()))
         if not heading: return None
         points = []
         for sibling in heading.find_next_siblings():
@@ -430,14 +410,14 @@ def fetch_treatment(url, disease_name):
             if sibling.name == "ul":
                 for li in sibling.find_all("li"):
                     txt = li.get_text(strip=True)
-                    if txt: points.append(f"- {txt}")
+                    if txt: points.append(f"💊 {txt}")
         if not points:
             for sibling in heading.find_next_siblings():
                 if sibling.name in ["h2","h3"]: break
                 if sibling.name == "p":
                     txt = sibling.get_text(strip=True)
-                    if txt: points.append(f"- {txt}")
-        return f"Treatment of {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+                    if txt: points.append(f"💊 {txt}")
+        return f"Treatment for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
     except Exception:
         return None
 
@@ -453,14 +433,14 @@ def fetch_prevention(url, disease_name):
             if sibling.name == "ul":
                 for li in sibling.find_all("li"):
                     txt = li.get_text(strip=True)
-                    if txt: points.append(f"- {txt}")
+                    if txt: points.append(f"🛡️ {txt}")
         if not points:
             for sibling in heading.find_next_siblings():
                 if sibling.name in ["h2","h3"]: break
                 if sibling.name == "p":
                     txt = sibling.get_text(strip=True)
-                    if txt: points.append(f"- {txt}")
-        return f"Prevention methods for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+                    if txt: points.append(f"🛡️ {txt}")
+        return f"Prevention for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
     except Exception:
         return None
 
@@ -480,14 +460,13 @@ def get_who_outbreak_data():
         response = requests.get(WHO_API_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
-        if "value" not in data or not data["value"]:
-            return None
+        if "value" not in data or not data["value"]: return None
         outbreaks = []
         for item in data["value"][:5]:
             title = item.get("OverrideTitle") or item.get("Title")
             date = item.get("FormattedDate", "Unknown date")
             url = "https://www.who.int" + item.get("ItemDefaultUrl", "")
-            outbreaks.append(f"Outbreak: {title} ({date})\nURL: {url}")
+            outbreaks.append(f"🦠 {title} ({date})\n🔗 {url}")
         return outbreaks
     except Exception:
         return None
@@ -495,6 +474,8 @@ def get_who_outbreak_data():
 # -------------------
 # Polio Schedule Builder
 # -------------------
+VACC_EMOJIS = ["💉","🕒","📅","⚠️","ℹ️","🎯","👶","🏥","⚕️","✅","⏰","📢"]
+
 def build_polio_schedule(birth_date):
     schedule = []
     schedule.append(("At Birth (within 15 days)", birth_date, "OPV-0"))
@@ -514,6 +495,7 @@ def webhook():
     disease_input = params.get("disease", "").strip()
     date_str = params.get("date", "")
 
+    # Detect language
     try:
         detected_lang = detect(disease_input) if disease_input else "en"
     except Exception:
@@ -522,47 +504,56 @@ def webhook():
     translated = translate_to_english(disease_input, detected_lang) or ""
     disease_param = translated.strip().lower()
     user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
+
     response_text = "Sorry, I don't understand your request."
 
+    # ---------- Intents ----------
     if intent_name == "get_disease_overview":
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
             overview = fetch_overview(url)
-            response_text = overview or f"Overview not found for {disease_param.capitalize()}. URL: {url}"
+            if overview:
+                points = overview.split(". ")[:5]
+                response_text = "📌 Overview:\n" + ". ".join(points)[:490]
+            else:
+                response_text = f"Overview not found for {disease_param.capitalize()}. You can read more here: {url}"
         else:
-            response_text = f"Disease not found."
+            response_text = f"Disease not found. Make sure to use a valid disease name."
 
     elif intent_name == "get_symptoms":
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
             symptoms = fetch_symptoms(url, disease_param)
-            response_text = symptoms or f"Symptoms not found for {disease_param.capitalize()}. URL: {url}"
+            response_text = symptoms or f"Symptoms not found for {disease_param.capitalize()}. You can read more here: {url}"
         else:
-            response_text = f"URL not available."
+            response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
     elif intent_name == "get_treatment":
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
             treatment = fetch_treatment(url, disease_param)
-            response_text = treatment or f"Treatment not found for {disease_param.capitalize()}. URL: {url}"
+            response_text = treatment or f"Treatment details not found for {disease_param.capitalize()}. You can read more here: {url}"
         else:
-            response_text = f"URL not available."
+            response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
     elif intent_name == "get_prevention":
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
             prevention = fetch_prevention(url, disease_param)
-            response_text = prevention or f"Prevention not found for {disease_param.capitalize()}. URL: {url}"
+            response_text = prevention or f"Prevention methods not found for {disease_param.capitalize()}. You can read more here: {url}"
         else:
-            response_text = f"URL not available."
+            response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
     elif intent_name == "disease_outbreak.general":
         outbreaks = get_who_outbreak_data()
-        response_text = "No outbreak data." if not outbreaks else "\n\n".join(outbreaks)
+        if not outbreaks:
+            response_text = "⚠️ Unable to fetch outbreak data right now."
+        else:
+            response_text = "🌍 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
 
     elif intent_name == "get_vaccine":
         # Use given date or today
@@ -575,31 +566,31 @@ def webhook():
             birth_date = datetime.date.today()
 
         schedule = build_polio_schedule(birth_date)
-        lines = ["POLIO VACCINATION SCHEDULE"]
-        lines.append("1. Vaccine Name: Oral Polio Vaccine (OPV) + Injectable Polio Vaccine (IPV)")
-        lines.append("2. Period of Time / Age: From birth up to 5 years")
 
-        # Step 3: Vaccination schedule table
-        table = ["3. Vaccination Date & Dose:"]
-        table.append(f"{'Age':<15} {'Date':<12} {'Vaccine'}")
-        for period, date, vaccine in schedule:
-            table.append(f"{period:<15} {date.strftime('%d-%b-%Y'):<12} {vaccine}")
-        lines.extend(table)
-
-        # Remaining steps
-        lines.append("4. Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis.")
-        lines.append("5. About the Vaccine: OPV (oral drops), IPV (injection), free under Govt.")
-        lines.append("6. Purpose: Prevents life-long paralysis & disability.")
-        lines.append("7. Gender: For all children.")
-        lines.append("8. Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers.")
-        lines.append("9. Side Effects: Safe; rarely mild fever. Consult doctor if severe.")
-        lines.append("10. After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses.")
-        lines.append(f"11. Next Dose Reminder: {schedule[1][1].strftime('%d-%b-%Y')} (OPV-1 + IPV-1)")
-        lines.append("12. Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days.")
+        lines = ["💉 POLIO VACCINATION SCHEDULE"]
+        for idx, (period, date, vaccine) in enumerate(schedule, 0):
+            emoji = VACC_EMOJIS[idx]
+            lines.append(f"{emoji} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}")
+        # Additional info
+        extra_steps = [
+            ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
+            ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
+            ("🎯", "Purpose: Prevents life-long paralysis & disability"),
+            ("👶", "Gender: For all children"),
+            ("🏥", "Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers"),
+            ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
+            ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
+            ("⏰", f"Next Dose Reminder: Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} ({schedule[1][2]})"),
+            ("📢", "Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days")
+        ]
+        for emoji, text in extra_steps:
+            lines.append(f"{emoji} {text}")
 
         response_text = "\n".join(lines)
 
+    # Translate back if needed
     response_text = translate_from_english(response_text, user_lang)
+
     return jsonify({"fulfillmentText": response_text})
 
 # -------------------
@@ -607,4 +598,5 @@ def webhook():
 # -------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
