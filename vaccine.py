@@ -22,18 +22,18 @@ def build_polio_schedule(birth_date):
 @app.route('/webhook', methods=['POST'])
 def webhook():
     req = request.get_json()
-    print(req)  # <-- Debug: see the full payload
+    print(req)  # Debug: see full payload
 
     intent_name = req.get("queryResult", {}).get("intent", {}).get("displayName", "")
     params = req.get("queryResult", {}).get("parameters", {})
 
     disease = params.get("disease", "").lower()
-    date_str = params.get("date", "")  # ISO format e.g., "2006-11-22T12:00:00+05:30"
 
-    # Only handle get_vaccine for polio
-    if intent_name == "get_vaccine" and disease == "polio" and date_str:
-        # Extract only the date part
-        birth_date = datetime.datetime.fromisoformat(date_str.split("T")[0]).date()
+    # Default to today if date not provided
+    birth_date = datetime.date.today()
+
+    # --- Only handle get_vaccine for Polio ---
+    if intent_name == "get_vaccine":
         schedule = build_polio_schedule(birth_date)
 
         lines = ["🧾 POLIO VACCINATION SCHEDULE"]
@@ -63,4 +63,3 @@ def webhook():
 # -------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
