@@ -380,45 +380,24 @@ def fetch_overview(url):
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
-
-        heading = soup.find(
-            lambda tag: tag.name in ["h2", "h3"] and "overview" in tag.get_text(strip=True).lower()
-        )
-        if not heading:
-            return None
-
+        heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "overview" in tag.get_text(strip=True).lower())
+        if not heading: return None
         paragraphs = []
         for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2", "h3"]:
-                break
+            if sibling.name in ["h2","h3"]: break
             if sibling.name == "p":
                 txt = sibling.get_text(strip=True)
-                if txt:
-                    paragraphs.append(txt)
-
-        if not paragraphs:
-            return None
-
+                if txt: paragraphs.append(txt)
+        if not paragraphs: return None
         text = " ".join(paragraphs)
-        sentences = re.split(r'(?<=[.!?]) +', text)
-
-        summary = []
-        total_len = 0
-        for s in sentences:
-            if len(summary) >= 5:
+        # Extract 5 key sentences (max 490 chars)
+        points = []
+        for sentence in text.split(". "):
+            if sentence.strip():
+                points.append(f"📌 {sentence.strip()}")
+            if len(" ".join(points)) > 490 or len(points) >= 5:
                 break
-            if len(s) < 30:  # skip short sentences
-                continue
-            next_len = total_len + len(s) + 3
-            if next_len > 490:
-                break
-            summary.append(s.strip())
-            total_len = next_len
-
-        if summary:
-            return "\n".join([f"- {s}" for s in summary])
-        else:
-            return text[:487].rsplit(" ", 1)[0] + "..."
+        return "\n".join(points)
     except Exception:
         return None
 
@@ -554,17 +533,13 @@ def webhook():
 
     response_text = "Sorry, I don't understand your request."
 
-    # ---------- Intents ----------
+    # ----- Intents -----
     if intent_name == "get_disease_overview":
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
             overview = fetch_overview(url)
-            if overview:
-                points = overview.split(". ")[:5]
-                response_text = "📌 Overview:\n" + ". ".join(points)[:490]
-            else:
-                response_text = f"Overview not found for {disease_param.capitalize()}. You can read more here: {url}"
+            response_text = overview or f"Overview not found for {disease_param.capitalize()}. Read more here: {url}"
         else:
             response_text = f"Disease not found. Make sure to use a valid disease name."
 
@@ -572,8 +547,7 @@ def webhook():
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            symptoms = fetch_symptoms(url, disease_param)
-            response_text = symptoms or f"Symptoms not found for {disease_param.capitalize()}. You can read more here: {url}"
+            response_text = fetch_symptoms(url, disease_param) or f"Symptoms not found for {disease_param.capitalize()}"
         else:
             response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
@@ -581,8 +555,7 @@ def webhook():
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            treatment = fetch_treatment(url, disease_param)
-            response_text = treatment or f"Treatment details not found for {disease_param.capitalize()}. You can read more here: {url}"
+            response_text = fetch_treatment(url, disease_param) or f"Treatment not found for {disease_param.capitalize()}"
         else:
             response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
@@ -590,20 +563,15 @@ def webhook():
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-            prevention = fetch_prevention(url, disease_param)
-            response_text = prevention or f"Prevention methods not found for {disease_param.capitalize()}. You can read more here: {url}"
+            response_text = fetch_prevention(url, disease_param) or f"Prevention not found for {disease_param.capitalize()}"
         else:
             response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
     elif intent_name == "disease_outbreak.general":
         outbreaks = get_who_outbreak_data()
-        if not outbreaks:
-            response_text = "⚠️ Unable to fetch outbreak data right now."
-        else:
-            response_text = "🌍 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
+        response_text = "⚠️ Unable to fetch outbreak data." if not outbreaks else "🦠 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
 
     elif intent_name == "get_vaccine":
-        # Use given date or today
         if date_str:
             try:
                 birth_date = datetime.datetime.strptime(date_str.split("T")[0], "%Y-%m-%d").date()
@@ -613,9 +581,8 @@ def webhook():
             birth_date = datetime.date.today()
 
         schedule = build_polio_schedule(birth_date)
-
         lines = ["💉 POLIO VACCINATION SCHEDULE"]
-        for idx, (period, date, vaccine) in enumerate(schedule, 0):
+        for idx, (period, date, vaccine) in enumerate(schedule):
             emoji = VACC_EMOJIS[idx]
             lines.append(f"{emoji} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}")
         # Additional info
@@ -632,12 +599,10 @@ def webhook():
         ]
         for emoji, text in extra_steps:
             lines.append(f"{emoji} {text}")
-
         response_text = "\n".join(lines)
 
     # Translate back if needed
     response_text = translate_from_english(response_text, user_lang)
-
     return jsonify({"fulfillmentText": response_text})
 
 # -------------------
