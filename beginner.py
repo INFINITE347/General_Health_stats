@@ -70,38 +70,64 @@ def translate_from_english(text, target_lang):
 # -------------------
 # WHO scraping helpers
 # -------------------
+
 def fetch_overview(url):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
+
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "overview" in tag.get_text(strip=True).lower())
-        if not heading: return None
+        if not heading:
+            return None
+
         paragraphs = []
         for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2","h3"]: break
+            if sibling.name in ["h2","h3"]:
+                break
             if sibling.name == "p":
                 txt = sibling.get_text(strip=True)
-                if txt: paragraphs.append(txt)
-        if not paragraphs: return None
+                if txt:
+                    paragraphs.append(txt)
+
+        if not paragraphs:
+            return None
+
         text = " ".join(paragraphs)
-        # Extract 5 key sentences (max 490 chars)
+
+        # Extract sentences and build up to 5 points within 500 chars
         points = []
         for sentence in text.split(". "):
             if sentence.strip():
-                points.append(f"📌 {sentence.strip()}")
-            if len(" ".join(points)) > 490 or len(points) >= 5:
+                candidate = f"📌 {sentence.strip()}."
+                if len(" ".join(points + [candidate])) > 500:
+                    break
+                points.append(candidate)
+            if len(points) >= 5:
                 break
-        return "\n".join(points)
+
+        return "\n".join(points) if points else None
     except Exception:
         return None
+
+def limit_text(text, limit=500):
+    """Truncate text gracefully at the last '.' before the limit."""
+    if len(text) <= limit:
+        return text
+    cutoff = text.rfind('.', 0, limit)
+    if cutoff == -1:  # no '.' found, fallback to hard cut
+        return text[:limit] + "..."
+    return text[:cutoff+1]
+
 
 def fetch_symptoms(url, disease_name):
     try:
         r = requests.get(url, timeout=10); r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "symptoms" in tag.get_text(strip=True).lower())
-        if not heading: return None
+        if not heading: 
+            return None
+
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2","h3"]: break
@@ -109,22 +135,24 @@ def fetch_symptoms(url, disease_name):
                 for li in sibling.find_all("li"):
                     txt = li.get_text(strip=True)
                     if txt: points.append(f"🔹 {txt}")
-        if not points:
-            for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2","h3"]: break
-                if sibling.name == "p":
-                    txt = sibling.get_text(strip=True)
-                    if txt: points.append(f"🔹 {txt}")
-        return f"Symptoms for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+            elif sibling.name == "p":
+                txt = sibling.get_text(strip=True)
+                if txt: points.append(f"🔹 {txt}")
+
+        text = f"Symptoms of {disease_name.capitalize()}:\n\n" + "\n\n".join(points)
+        return limit_text(text) if text else None
     except Exception:
         return None
+
 
 def fetch_treatment(url, disease_name):
     try:
         r = requests.get(url, timeout=10); r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and ("treatment" in tag.get_text(strip=True).lower() or "management" in tag.get_text(strip=True).lower()))
-        if not heading: return None
+        if not heading: 
+            return None
+
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2","h3"]: break
@@ -132,22 +160,24 @@ def fetch_treatment(url, disease_name):
                 for li in sibling.find_all("li"):
                     txt = li.get_text(strip=True)
                     if txt: points.append(f"💊 {txt}")
-        if not points:
-            for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2","h3"]: break
-                if sibling.name == "p":
-                    txt = sibling.get_text(strip=True)
-                    if txt: points.append(f"💊 {txt}")
-        return f"Treatment for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+            elif sibling.name == "p":
+                txt = sibling.get_text(strip=True)
+                if txt: points.append(f"💊 {txt}")
+
+        text = f"Treatment of {disease_name.capitalize()}:\n\n" + "\n\n".join(points)
+        return limit_text(text) if text else None
     except Exception:
         return None
+
 
 def fetch_prevention(url, disease_name):
     try:
         r = requests.get(url, timeout=10); r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "prevention" in tag.get_text(strip=True).lower())
-        if not heading: return None
+        if not heading: 
+            return None
+
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2","h3"]: break
@@ -155,15 +185,109 @@ def fetch_prevention(url, disease_name):
                 for li in sibling.find_all("li"):
                     txt = li.get_text(strip=True)
                     if txt: points.append(f"🛡️ {txt}")
-        if not points:
-            for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2","h3"]: break
-                if sibling.name == "p":
-                    txt = sibling.get_text(strip=True)
-                    if txt: points.append(f"🛡️ {txt}")
-        return f"Prevention for {disease_name.capitalize()}:\n" + "\n".join(points) if points else None
+            elif sibling.name == "p":
+                txt = sibling.get_text(strip=True)
+                if txt: points.append(f"🛡️ {txt}")
+
+        text = f"Prevention of {disease_name.capitalize()}:\n\n" + "\n\n".join(points)
+        return limit_text(text) if text else None
     except Exception:
         return None
+
+# def fetch_overview(url):
+#     try:
+#         r = requests.get(url, timeout=10)
+#         r.raise_for_status()
+#         soup = BeautifulSoup(r.text, "html.parser")
+#         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "overview" in tag.get_text(strip=True).lower())
+#         if not heading: return None
+#         paragraphs = []
+#         for sibling in heading.find_next_siblings():
+#             if sibling.name in ["h2","h3"]: break
+#             if sibling.name == "p":
+#                 txt = sibling.get_text(strip=True)
+#                 if txt: paragraphs.append(txt)
+#         if not paragraphs: return None
+#         text = " ".join(paragraphs)
+#         # Extract 5 key sentences (max 490 chars)
+#         points = []
+#         for sentence in text.split(". "):
+#             if sentence.strip():
+#                 points.append(f"📌 {sentence.strip()}")
+#             if len(" ".join(points)) > 490 or len(points) >= 5:
+#                 break
+#         return "\n".join(points)
+#     except Exception:
+#         return None
+
+# def fetch_symptoms(url, disease_name):
+#     try:
+#         r = requests.get(url, timeout=10); r.raise_for_status()
+#         soup = BeautifulSoup(r.text, "html.parser")
+#         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "symptoms" in tag.get_text(strip=True).lower())
+#         if not heading: return None
+#         points = []
+#         for sibling in heading.find_next_siblings():
+#             if sibling.name in ["h2","h3"]: break
+#             if sibling.name == "ul":
+#                 for li in sibling.find_all("li"):
+#                     txt = li.get_text(strip=True)
+#                     if txt: points.append(f"🔹 {txt}")
+#         if not points:
+#             for sibling in heading.find_next_siblings():
+#                 if sibling.name in ["h2","h3"]: break
+#                 if sibling.name == "p":
+#                     txt = sibling.get_text(strip=True)
+#                     if txt: points.append(f"🔹 {txt}")
+#         return f"Symptoms for {disease_name.capitalize()}:\n\n" + "\n\n".join(points) if points else None
+#     except Exception:
+#         return None
+
+# def fetch_treatment(url, disease_name):
+#     try:
+#         r = requests.get(url, timeout=10); r.raise_for_status()
+#         soup = BeautifulSoup(r.text, "html.parser")
+#         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and ("treatment" in tag.get_text(strip=True).lower() or "management" in tag.get_text(strip=True).lower()))
+#         if not heading: return None
+#         points = []
+#         for sibling in heading.find_next_siblings():
+#             if sibling.name in ["h2","h3"]: break
+#             if sibling.name == "ul":
+#                 for li in sibling.find_all("li"):
+#                     txt = li.get_text(strip=True)
+#                     if txt: points.append(f"💊 {txt}")
+#         if not points:
+#             for sibling in heading.find_next_siblings():
+#                 if sibling.name in ["h2","h3"]: break
+#                 if sibling.name == "p":
+#                     txt = sibling.get_text(strip=True)
+#                     if txt: points.append(f"💊 {txt}")
+#         return f"Treatment for {disease_name.capitalize()}:\n\n" + "\n\n".join(points) if points else None
+#     except Exception:
+#         return None
+
+# def fetch_prevention(url, disease_name):
+#     try:
+#         r = requests.get(url, timeout=10); r.raise_for_status()
+#         soup = BeautifulSoup(r.text, "html.parser")
+#         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "prevention" in tag.get_text(strip=True).lower())
+#         if not heading: return None
+#         points = []
+#         for sibling in heading.find_next_siblings():
+#             if sibling.name in ["h2","h3"]: break
+#             if sibling.name == "ul":
+#                 for li in sibling.find_all("li"):
+#                     txt = li.get_text(strip=True)
+#                     if txt: points.append(f"🛡️ {txt}")
+#         if not points:
+#             for sibling in heading.find_next_siblings():
+#                 if sibling.name in ["h2","h3"]: break
+#                 if sibling.name == "p":
+#                     txt = sibling.get_text(strip=True)
+#                     if txt: points.append(f"🛡️ {txt}")
+#         return f"Prevention for {disease_name.capitalize()}:\n\n" + "\n\n".join(points) if points else None
+#     except Exception:
+#         return None
 
 # ---------- WHO Outbreak API ----------
 WHO_API_URL = (
