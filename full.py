@@ -263,8 +263,95 @@ def webhook():
     response_text = "Sorry, I don't understand your request."
 
     # ----- Existing intents logic -----
-    # Copy all your previous intent handling here (get_overview, get_symptoms, etc.)
-    # For brevity, logic is assumed intact
+       # ----- Intents -----
+    if intent_name == "get_disease_overview":
+        response_text = "📖 DISEASE OVERVIEW\n\n"
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            overview = fetch_overview(url)
+            response_text += overview or f"Overview not found for {disease_param.capitalize()}. Read more here: {url}"
+        else:
+            response_text += "Disease not found. Make sure to use a valid disease name."
+
+    elif intent_name == "get_symptoms":
+        response_text = "🤒 SYMPTOMS\n\n"
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            response_text += fetch_symptoms(url, disease_param) or f"Symptoms not found for {disease_param.capitalize()}"
+        else:
+            response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    elif intent_name == "get_treatment":
+        response_text = "💊 TREATMENT\n\n"
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            response_text += fetch_treatment(url, disease_param) or f"Treatment not found for {disease_param.capitalize()}"
+        else:
+            response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    elif intent_name == "get_prevention":
+        response_text = "🛡️ PREVENTION\n\n"
+        slug = get_slug(disease_param)
+        if slug:
+            url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+            response_text += fetch_prevention(url, disease_param) or f"Prevention not found for {disease_param.capitalize()}"
+        else:
+            response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    elif intent_name == "disease_outbreak.general":
+        # take "any" param as updates input
+        updates_input = params.get("any", "").strip()
+        try:
+            updates_lang = detect(updates_input) if updates_input else "en"
+        except Exception:
+            updates_lang = "en"
+
+        response_text = "🌍 LATEST OUTBREAK NEWS\n\n"
+        outbreaks = get_who_outbreak_data()
+        if not outbreaks:
+            response_text += "⚠️ Unable to fetch outbreak data."
+        else:
+            response_text += "🦠 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
+
+        # Translate back to local language
+        response_text = translate_from_english(response_text, updates_lang)
+
+    elif intent_name == "get_vaccine":
+        response_text = "💉 POLIO VACCINATION SCHEDULE\n\n"
+        if date_str:
+            try:
+                birth_date = datetime.datetime.strptime(date_str.split("T")[0], "%Y-%m-%d").date()
+            except Exception:
+                birth_date = datetime.date.today()
+        else:
+            birth_date = datetime.date.today()
+
+        schedule = build_polio_schedule(birth_date)
+        lines = []
+        for idx, (period, date, vaccine) in enumerate(schedule):
+            emoji = VACC_EMOJIS[idx]
+            lines.append(f"{emoji} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}")
+        # Additional info
+        extra_steps = [
+            ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
+            ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
+            ("🎯", "Purpose: Prevents life-long paralysis & disability"),
+            ("👶", "Gender: For all children"),
+            ("🏥", "Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers"),
+            ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
+            ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
+            ("⏰", f"Next Dose Reminder: Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} ({schedule[1][2]})"),
+            ("📢", "Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days")
+        ]
+        for emoji, text in extra_steps:
+            lines.append(f"{emoji} {text}")
+        response_text += "\n".join(lines)
+
+    elif intent_name == "Default Fallback Intent":
+        response_text = "🤔 Sorry, I couldn't understand that. Please provide a disease name or try rephrasing your question."
 
     # ---------------- Memory Save ----------------
     save_user_memory(user_id, memory)
