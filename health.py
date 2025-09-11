@@ -798,7 +798,7 @@ def get_who_outbreak_data():
             title = item.get("OverrideTitle") or item.get("Title")
             date = item.get("FormattedDate", "Unknown date")
             url = "https://www.who.int" + item.get("ItemDefaultUrl", "")
-            outbreaks.append(f"🦠 {title} ({date})\n🔗 {url}")
+            outbreaks.append(f"🦠 {title} ({date})\n")
         return outbreaks
     except Exception:
         return None
