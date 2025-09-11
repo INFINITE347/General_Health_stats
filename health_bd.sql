@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS users (
+    user_id TEXT PRIMARY KEY,
+    context JSONB NOT NULL DEFAULT '{}'::jsonb,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
