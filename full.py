@@ -5,6 +5,7 @@ from langdetect import detect, DetectorFactory
 import datetime
 import psycopg2
 import json
+import os
 
 app = Flask(__name__)
 
@@ -207,24 +208,45 @@ def build_polio_schedule(birth_date):
 # -------------------
 # --- PostgreSQL Memory Integration ---
 # -------------------
-DATABASE_URL = "postgresql://health_bd_user:WAondn4QJzHTDruHeRMHixaX5s0pjFIK@dpg-d316aigdl3ps73e3v3eg-a/health_bd"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 conn = psycopg2.connect(DATABASE_URL)
 
+# Ensure users table exists
+def create_users_table():
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT PRIMARY KEY,
+                context JSONB NOT NULL DEFAULT '{}'::jsonb,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+        cur.close()
+        print("✅ users table is ready")
+    except Exception as e:
+        print(f"Error creating users table: {e}")
+
+create_users_table()
+
 def get_user_memory(user_id):
-    with conn.cursor() as cur:
-        cur.execute("SELECT context FROM users WHERE user_id = %s", (user_id,))
-        row = cur.fetchone()
+    cur = conn.cursor()
+    cur.execute("SELECT context FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
     return json.loads(row[0]) if row else {}
 
 def save_user_memory(user_id, context):
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO users (user_id, context, last_updated)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (user_id) 
-            DO UPDATE SET context = %s, last_updated = NOW()
-        """, (user_id, json.dumps(context), json.dumps(context)))
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO users (user_id, context, last_updated)
+        VALUES (%s, %s, NOW())
+        ON CONFLICT (user_id) 
+        DO UPDATE SET context = %s, last_updated = NOW()
+    """, (user_id, json.dumps(context), json.dumps(context)))
     conn.commit()
+    cur.close()
 
 # -------- Flask webhook route --------
 @app.route('/webhook', methods=['POST'])
@@ -262,7 +284,7 @@ def webhook():
 
     response_text = "Sorry, I don't understand your request."
 
-    # ----- Existing intents logic -----
+    # ----- Existing webhook intents logic remains intact -----
        # ----- Intents -----
     if intent_name == "get_disease_overview":
         response_text = "📖 DISEASE OVERVIEW\n\n"
@@ -364,3 +386,6 @@ def webhook():
 # -------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+
