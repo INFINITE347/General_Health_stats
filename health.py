@@ -823,11 +823,11 @@ def build_polio_schedule(birth_date):
 def webhook():
     req = request.get_json()
     intent_name = req["queryResult"]["intent"]["displayName"]
-    # params = req["queryResult"].get("parameters", {})
+    params = req["queryResult"].get("parameters", {})
     # disease_input = params.get("disease", "").strip()
     date_str = params.get("date", "")
 
-    params = req["queryResult"].get("parameters", {})
+    # params = req["queryResult"].get("parameters", {})
     disease_input = params.get("disease", "").strip()
 
     # fallback to @sys.any if disease is not given
