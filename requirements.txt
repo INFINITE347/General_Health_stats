@@ -7,3 +7,4 @@ langdetect
 google-auth
 reportlab
 python-dateutil
+psycopg2-binary
