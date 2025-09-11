@@ -309,8 +309,11 @@ def webhook():
 
     # ----- Existing webhook intents logic remains intact -----
        # ----- Intents -----
+        # ----- Intents -----
     if intent_name == "get_disease_overview":
         response_text = "📖 DISEASE OVERVIEW\n\n"
+        if not disease_param and memory.get("last_disease"):
+            disease_param = memory["last_disease"].strip().lower()
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
@@ -321,6 +324,8 @@ def webhook():
 
     elif intent_name == "get_symptoms":
         response_text = "🤒 SYMPTOMS\n\n"
+        if not disease_param and memory.get("last_disease"):
+            disease_param = memory["last_disease"].strip().lower()
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
@@ -330,6 +335,8 @@ def webhook():
 
     elif intent_name == "get_treatment":
         response_text = "💊 TREATMENT\n\n"
+        if not disease_param and memory.get("last_disease"):
+            disease_param = memory["last_disease"].strip().lower()
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
@@ -339,6 +346,8 @@ def webhook():
 
     elif intent_name == "get_prevention":
         response_text = "🛡️ PREVENTION\n\n"
+        if not disease_param and memory.get("last_disease"):
+            disease_param = memory["last_disease"].strip().lower()
         slug = get_slug(disease_param)
         if slug:
             url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
@@ -346,20 +355,57 @@ def webhook():
         else:
             response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
 
-    elif intent_name == "disease_outbreak.general":
-        # take "any" param as updates input
-        updates_input = params.get("any", "").strip()
-        try:
-            updates_lang = detect(updates_input) if updates_input else "en"
-        except Exception:
-            updates_lang = "en"
+    # if intent_name == "get_disease_overview":
+    #     response_text = "📖 DISEASE OVERVIEW\n\n"
+    #     slug = get_slug(disease_param)
+    #     if slug:
+    #         url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+    #         overview = fetch_overview(url)
+    #         response_text += overview or f"Overview not found for {disease_param.capitalize()}. Read more here: {url}"
+    #     else:
+    #         response_text += "Disease not found. Make sure to use a valid disease name."
 
-        response_text = "🌍 LATEST OUTBREAK NEWS\n\n"
-        outbreaks = get_who_outbreak_data()
-        if not outbreaks:
-            response_text += "⚠️ Unable to fetch outbreak data."
-        else:
-            response_text += "🦠 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
+    # elif intent_name == "get_symptoms":
+    #     response_text = "🤒 SYMPTOMS\n\n"
+    #     slug = get_slug(disease_param)
+    #     if slug:
+    #         url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+    #         response_text += fetch_symptoms(url, disease_param) or f"Symptoms not found for {disease_param.capitalize()}"
+    #     else:
+    #         response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    # elif intent_name == "get_treatment":
+    #     response_text = "💊 TREATMENT\n\n"
+    #     slug = get_slug(disease_param)
+    #     if slug:
+    #         url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+    #         response_text += fetch_treatment(url, disease_param) or f"Treatment not found for {disease_param.capitalize()}"
+    #     else:
+    #         response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    # elif intent_name == "get_prevention":
+    #     response_text = "🛡️ PREVENTION\n\n"
+    #     slug = get_slug(disease_param)
+    #     if slug:
+    #         url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+    #         response_text += fetch_prevention(url, disease_param) or f"Prevention not found for {disease_param.capitalize()}"
+    #     else:
+    #         response_text += f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+
+    # elif intent_name == "disease_outbreak.general":
+    #     # take "any" param as updates input
+    #     updates_input = params.get("any", "").strip()
+    #     try:
+    #         updates_lang = detect(updates_input) if updates_input else "en"
+    #     except Exception:
+    #         updates_lang = "en"
+
+    #     response_text = "🌍 LATEST OUTBREAK NEWS\n\n"
+    #     outbreaks = get_who_outbreak_data()
+    #     if not outbreaks:
+    #         response_text += "⚠️ Unable to fetch outbreak data."
+    #     else:
+    #         response_text += "🦠 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
 
         # Translate back to local language
         response_text = translate_from_english(response_text, updates_lang)
