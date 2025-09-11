@@ -447,7 +447,7 @@ def webhook():
     # ---------------- Memory Save ----------------
     
     save_user_memory(user_id, memory)
-    response_text = translate_from_english(response_text, user_lang)
+    # response_text = translate_from_english(response_text, user_lang)
     return jsonify({"fulfillmentText": response_text})
 
 # -------------------
