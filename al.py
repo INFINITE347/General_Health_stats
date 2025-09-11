@@ -1321,7 +1321,7 @@ def webhook():
     req = request.get_json()
     intent_name = req["queryResult"]["intent"]["displayName"]
     params = req["queryResult"].get("parameters", {})
-    disease_input = params.get("disease", "").strip()
+    disease_input = params.get("any", "").strip()
 
     # ✅ Detect user input language
     try:
