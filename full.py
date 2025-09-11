@@ -54,7 +54,7 @@ def translate_to_english(disease_param, detected_lang):
         print(f"MyMemory translation error: {e}")
         return disease_param
 
-def translate_from_english(text, target_lang):
+def translate_from_english(text, user_lang):
     if target_lang not in INDIAN_LANGUAGES or not text.strip():
         return text
     try:
@@ -447,7 +447,7 @@ def webhook():
     # ---------------- Memory Save ----------------
     
     save_user_memory(user_id, memory)
-    # response_text = translate_from_english(response_text, user_lang)
+    response_text = translate_from_english(response_text, user_lang)
     return jsonify({"fulfillmentText": response_text})
 
 # -------------------
