@@ -3,8 +3,8 @@ import requests
 from bs4 import BeautifulSoup
 from langdetect import detect, DetectorFactory
 import datetime
+from psycopg2.extras import Json
 import psycopg2
-import json
 import os
 
 app = Flask(__name__)
@@ -234,13 +234,17 @@ create_users_table()
 # User Memory (PostgreSQL)
 # -------------------
 
-def get_user_memory(user_id):
+def save_user_memory(user_id, context):
     cur = conn.cursor()
-    cur.execute("SELECT context FROM users WHERE user_id = %s", (user_id,))
-    row = cur.fetchone()
+    cur.execute("""
+        INSERT INTO users (user_id, context, last_updated)
+        VALUES (%s, %s, NOW())
+        ON CONFLICT (user_id) 
+        DO UPDATE SET context = EXCLUDED.context, last_updated = NOW()
+    """, (user_id, Json(context)))   # 👈 wrap dict with Json()
+    conn.commit()
     cur.close()
-    # row[0] is already a dict (because JSONB), no need for json.loads
-    return row[0] if row else {}
+
 
 def save_user_memory(user_id, context):
     cur = conn.cursor()
