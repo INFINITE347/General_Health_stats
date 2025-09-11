@@ -234,6 +234,14 @@ create_users_table()
 # User Memory (PostgreSQL)
 # -------------------
 
+def get_user_memory(user_id):
+    cur = conn.cursor()
+    cur.execute("SELECT context FROM users WHERE user_id = %s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    # row[0] is already a dict (because JSONB), no need for json.loads
+    return row[0] if row else {}
+    
 def save_user_memory(user_id, context):
     cur = conn.cursor()
     cur.execute("""
@@ -244,20 +252,7 @@ def save_user_memory(user_id, context):
     """, (user_id, Json(context)))   # 👈 wrap dict with Json()
     conn.commit()
     cur.close()
-
-
-def save_user_memory(user_id, context):
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO users (user_id, context, last_updated)
-        VALUES (%s, %s, NOW())
-        ON CONFLICT (user_id) 
-        DO UPDATE SET context = EXCLUDED.context, last_updated = NOW()
-    """, (user_id, context))
-    conn.commit()
-    cur.close()
-
-
+    
 # def get_user_memory(user_id):
 #     cur = conn.cursor()
 #     cur.execute("SELECT context FROM users WHERE user_id = %s", (user_id,))
