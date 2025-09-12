@@ -1724,7 +1724,11 @@ def truncate_response(text, limit=500):
     return head
 
 def translate_text(text, langpair):
-    if not text or not langpair: return text
+    if not text or not langpair:
+        return text
+    src, tgt = langpair.split('|')
+    if src == tgt:
+        return text  # skip translation if same language
     key = (text, langpair)
     if key in translation_cache:
         return translation_cache[key]
@@ -1744,6 +1748,7 @@ def translate_text(text, langpair):
         print(f"Translation error ({langpair}): {e}")
     translation_cache[key] = text
     return text
+
 
 def fetch_section(url, heading_keywords, bullet_emoji='', max_chars=500):
     try:
