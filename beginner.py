@@ -1650,115 +1650,94 @@ import traceback
 app = Flask(__name__)
 DetectorFactory.seed = 0  # deterministic language detection
 
-# ----------- Configuration -----------
-INDIAN_LANGUAGES = ["hi", "te", "ta", "kn", "bn", "mr", "gu", "ml", "ur", "pa", "or", "ks"]
+# -------------------
+# Indian language codes
+INDIAN_LANGUAGES = [
+    "hi", "te", "ta", "kn", "bn", "mr", "gu", "ml", "ur", "pa", "or", "ks"
+]
+
+# -------- Slugs URL --------
 SLUGS_URL = "https://raw.githubusercontent.com/INFINITE347/General_Health_stats/main/slugs.json"
-VACC_EMOJIS = ["💉","🕒","📅","⚠️","ℹ️","🎯","👶","🏥","⚕️","✅","⏰","📢"]
-WHO_API_URL = (
-    "https://www.who.int/api/emergencies/diseaseoutbreaknews"
-    "?sf_provider=dynamicProvider372&sf_culture=en"
-    "&$orderby=PublicationDateAndTime%20desc"
-    "&$expand=EmergencyEvent"
-    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
-    "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
-    "&%24format=json&%24top=10&%24count=true"
-)
 
-# ----------- Caches -----------
-slug_cache = {}
-translation_cache = {}  # {(text, langpair): translation}
-
-# ----------- Load Slugs at Startup -----------
-try:
-    resp = requests.get(SLUGS_URL, timeout=10)
-    resp.raise_for_status()
-    slug_cache = resp.json()
-    print(f"✅ Loaded {len(slug_cache)} disease slugs")
-except Exception as e:
-    print(f"⚠️ Failed to load slugs.json: {e}")
-
-# ----------- Database Setup -----------
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if DATABASE_URL:
+def load_slugs():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        resp = requests.get(SLUGS_URL, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
     except Exception as e:
-        print(f"DB connection failed: {e}")
-        conn = None
-        _in_memory_store = {}
-else:
-    conn = None
-    _in_memory_store = {}
+        print(f"Error loading slugs.json: {e}")
+        return {}
 
-# Create users table
-if conn:
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                user_id TEXT PRIMARY KEY,
-                context JSONB NOT NULL DEFAULT '{}'::jsonb,
-                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
-        conn.commit()
-        cur.close()
-        print("✅ users table ready")
-    except Exception as e:
-        print(f"DB table creation error: {e}")
-
-# ----------- Helper Functions -----------
 def get_slug(disease_param):
-    return slug_cache.get((disease_param or '').strip().lower())
+    slugs = load_slugs()
+    key = (disease_param or "").strip().lower()
+    return slugs.get(key)
 
-def truncate_response(text, limit=500):
-    if not text or len(text) <= limit:
-        return text
-    head = text[:limit]
-    last_dot = head.rfind('.')
-    if last_dot != -1:
-        return text[:last_dot + 1]
-    last_space = head.rfind(' ')
-    if last_space != -1 and last_space > int(limit*0.3):
-        return head[:last_space] + '...'
-    return head
-
-def translate_text(text, langpair):
-    if not text or not langpair:
-        return text
-    src, tgt = langpair.split('|')
-    if src == tgt:
-        return text
-    text_to_translate = text[:500]
-    key = (text_to_translate, langpair)
-    if key in translation_cache:
-        return translation_cache[key]
+# -------- Translation helpers --------
+def translate_to_english(disease_param, detected_lang):
+    """Translate incoming Indian language param to English. Skip if English."""
+    if not disease_param or detected_lang == "en":
+        return disease_param
+    if detected_lang not in INDIAN_LANGUAGES:
+        return disease_param
     try:
         resp = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": text_to_translate, "langpair": langpair},
+            params={"q": disease_param, "langpair": f"{detected_lang}|en"},
             timeout=10
         )
         resp.raise_for_status()
         data = resp.json()
         translated = data.get("responseData", {}).get("translatedText")
-        if translated:
-            translation_cache[key] = translated
-            if len(text) > 500:
-                translated += "..."
-            return translated
+        return translated if translated else disease_param
     except Exception as e:
-        print(f"Translation error ({langpair}): {e}")
-    translation_cache[key] = text
-    return text
+        print(f"Translation error (to English): {e}")
+        return disease_param
 
-def fetch_section(url, heading_keywords, bullet_emoji='🔹', max_chars=500):
+def translate_from_english(text, target_lang):
+    """Translate English response to Indian language if needed."""
+    if not text or target_lang == "en":
+        return text
+    if target_lang not in INDIAN_LANGUAGES:
+        return text
+    try:
+        resp = requests.get(
+            "https://api.mymemory.translated.net/get",
+            params={"q": text, "langpair": f"en|{target_lang}"},
+            timeout=10
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        translated = data.get("responseData", {}).get("translatedText")
+        return translated if translated else text
+    except Exception as e:
+        print(f"Translation error (from English): {e}")
+        return text
+
+# -------- Truncate helper --------
+def truncate_response(text, limit=500):
+    if not text:
+        return text
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    last_dot = head.rfind('.')
+    if last_dot != -1:
+        return text[: last_dot + 1]
+    last_space = head.rfind(' ')
+    if last_space != -1 and last_space > int(limit * 0.3):
+        return head[:last_space] + "..."
+    return head
+
+# -------- WHO Scraping Helpers --------
+def fetch_section(url, heading_keywords, bullet_emoji='🔹'):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, 'html.parser')
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and any(k in tag.get_text(strip=True).lower() for k in heading_keywords))
-        if not heading: return None
+        if not heading:
+            return None
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2","h3"]:
@@ -1770,53 +1749,23 @@ def fetch_section(url, heading_keywords, bullet_emoji='🔹', max_chars=500):
             elif sibling.name == 'p':
                 txt = sibling.get_text(strip=True)
                 if txt: points.append(f"{bullet_emoji} {txt}")
-        if not points: return None
+        if not points:
+            return None
         return '\n'.join(points)
     except Exception:
         traceback.print_exc()
         return None
 
-def get_user_memory(user_id):
-    if not user_id: return {}
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT context FROM users WHERE user_id=%s", (user_id,))
-            row = cur.fetchone()
-            cur.close()
-            return row[0] if row else {}
-        except Exception as e:
-            print(f"DB get memory error: {e}")
-            return {}
-    return _in_memory_store.get(user_id, {}).copy()
-
-def save_user_memory(user_id, context):
-    if not user_id: return
-    if conn:
-        try:
-            cur = conn.cursor()
-            cur.execute("""
-                INSERT INTO users (user_id, context, last_updated)
-                VALUES (%s, %s, NOW())
-                ON CONFLICT (user_id) DO UPDATE SET context=EXCLUDED.context, last_updated=NOW()
-            """, (user_id, Json(context)))
-            conn.commit()
-            cur.close()
-        except Exception as e:
-            print(f"DB save memory error: {e}")
-    else:
-        _in_memory_store[user_id] = context.copy()
-
-def build_polio_schedule(birth_date):
-    schedule = [
-        ("At Birth (within 15 days)", birth_date, "OPV-0"),
-        ("6 Weeks", birth_date + datetime.timedelta(weeks=6), "OPV-1 + IPV-1"),
-        ("10 Weeks", birth_date + datetime.timedelta(weeks=10), "OPV-2"),
-        ("14 Weeks", birth_date + datetime.timedelta(weeks=14), "OPV-3 + IPV-2"),
-        ("16–24 Months", birth_date + datetime.timedelta(weeks=72), "OPV + IPV Boosters"),
-        ("5 Years", birth_date + datetime.timedelta(weeks=260), "OPV Booster")
-    ]
-    return schedule
+# -------- WHO Outbreak API --------
+WHO_API_URL = (
+    "https://www.who.int/api/emergencies/diseaseoutbreaknews"
+    "?sf_provider=dynamicProvider372&sf_culture=en"
+    "&$orderby=PublicationDateAndTime%20desc"
+    "&$expand=EmergencyEvent"
+    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
+    "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
+    "&%24format=json&%24top=10&%24count=true"
+)
 
 def get_who_outbreak_data():
     try:
@@ -1833,7 +1782,87 @@ def get_who_outbreak_data():
         traceback.print_exc()
         return None
 
-# ----------- Webhook Input Processing -----------
+# -------- Polio schedule --------
+VACC_EMOJIS = ["💉","🕒","📅","⚠️","ℹ️","🎯","👶","🏥","⚕️","✅","⏰","📢"]
+
+def build_polio_schedule(birth_date):
+    schedule = [
+        ("At Birth (within 15 days)", birth_date, "OPV-0"),
+        ("6 Weeks", birth_date + datetime.timedelta(weeks=6), "OPV-1 + IPV-1"),
+        ("10 Weeks", birth_date + datetime.timedelta(weeks=10), "OPV-2"),
+        ("14 Weeks", birth_date + datetime.timedelta(weeks=14), "OPV-3 + IPV-2"),
+        ("16–24 Months", birth_date + datetime.timedelta(weeks=72), "OPV + IPV Boosters"),
+        ("5 Years", birth_date + datetime.timedelta(weeks=260), "OPV Booster")
+    ]
+    return schedule
+
+# -------- PostgreSQL / Memory --------
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    conn = None
+    _in_memory_store = {}
+else:
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+    except Exception as e:
+        print(f"DB connection error: {e}")
+        conn = None
+        _in_memory_store = {}
+
+def create_users_table():
+    if not conn:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id TEXT PRIMARY KEY,
+                context JSONB NOT NULL DEFAULT '{}'::jsonb,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"Users table error: {e}")
+
+create_users_table()
+
+def get_user_memory(user_id):
+    if not user_id:
+        return {}
+    if not conn:
+        return _in_memory_store.get(user_id, {}).copy()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT context FROM users WHERE user_id=%s", (user_id,))
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else {}
+    except Exception as e:
+        print(f"DB get_user_memory error: {e}")
+        return {}
+
+def save_user_memory(user_id, context):
+    if not user_id:
+        return
+    if not conn:
+        _in_memory_store[user_id] = context.copy()
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO users (user_id, context, last_updated)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (user_id)
+            DO UPDATE SET context = EXCLUDED.context, last_updated = NOW()
+        """, (user_id, Json(context)))
+        conn.commit()
+        cur.close()
+    except Exception as e:
+        print(f"DB save_user_memory error: {e}")
+
+# -------- Flask Webhook --------
 @app.route('/webhook', methods=['POST'])
 def webhook():
     req = request.get_json(silent=True)
@@ -1843,9 +1872,8 @@ def webhook():
     user_id = req.get("originalDetectIntentRequest", {}).get("payload", {}).get("user", {}).get("userId") or req.get("session")
     intent_name = req.get("queryResult", {}).get("intent", {}).get("displayName", "")
     params = req.get("queryResult", {}).get("parameters", {}) or {}
-
     date_str = params.get("date", "")
-    disease_input = (params.get("disease", "") or params.get("any", "")).strip()
+    disease_input = (params.get("disease", "") or params.get("any", "") or "").strip()
 
     memory = get_user_memory(user_id) or {}
     memory.setdefault("last_disease", "")
@@ -1858,22 +1886,15 @@ def webhook():
     except Exception:
         detected_lang = memory.get("user_lang", "en")
 
-    # --- Logic for disease input ---
+    # If user provided param -> translate only if Indian language
     if disease_input:
-        # User provided a parameter → do not fetch from memory, just store
-        if detected_lang == "en":
-            disease_param = disease_input.lower()
-            user_lang = "en"
-        else:
-            disease_param = translate_text(disease_input, f"{detected_lang}|en").lower()
-            user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
-        memory["last_disease"] = disease_param
+        disease_param = translate_to_english(disease_input, detected_lang) or disease_input
+        disease_param = disease_param.strip().lower()
+        user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
     else:
-        # No param → fetch from memory
         disease_param = memory.get("last_disease", "")
         user_lang = memory.get("user_lang", "en")
 
-    # Update memory
     memory["last_disease"] = disease_param
     memory["user_lang"] = user_lang
 
@@ -1890,9 +1911,8 @@ def webhook():
     response_text = "Sorry, I don't understand your request."
 
     try:
-        # --- Intent Handling ---
         if intent_name == "get_disease_overview":
-            response_text = "📖 Disease Overview\n"
+            response_text = "📖 DISEASE OVERVIEW\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1905,7 +1925,7 @@ def webhook():
                     response_text += f"Disease not found: {disease_param}."
 
         elif intent_name == "get_symptoms":
-            response_text = "🤒 Symptoms\n"
+            response_text = "🤒 SYMPTOMS\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1918,7 +1938,7 @@ def webhook():
                     response_text += f"No URL found for {disease_param}."
 
         elif intent_name == "get_treatment":
-            response_text = "💊 Treatment\n"
+            response_text = "💊 TREATMENT\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1931,7 +1951,7 @@ def webhook():
                     response_text += f"No URL found for {disease_param}."
 
         elif intent_name == "get_prevention":
-            response_text = "🛡️ Prevention\n"
+            response_text = "🛡️ PREVENTION\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1944,22 +1964,18 @@ def webhook():
                     response_text += f"No URL found for {disease_param}."
 
         elif intent_name == "disease_outbreak.general":
-            response_text = "🌍 Latest Outbreak News\n"
+            response_text = "🌍 LATEST OUTBREAK NEWS\n\n"
             outbreaks = get_who_outbreak_data()
-            if outbreaks:
-                response_text += '\n'.join(outbreaks)
-            else:
-                response_text += "Unable to fetch outbreak data."
+            response_text += '\n'.join(outbreaks) if outbreaks else "Unable to fetch outbreak data."
 
         elif intent_name == "get_vaccine":
-            response_text = "💉 Polio Vaccination Schedule\n"
+            response_text = "💉 POLIO VACCINATION SCHEDULE\n\n"
+            birth_date = datetime.date.today()
             if date_str:
                 try:
-                    birth_date = datetime.datetime.strptime(date_str.split('T')[0], '%Y-%m-%d').date()
+                    birth_date = datetime.datetime.strptime(date_str.split("T")[0], "%Y-%m-%d").date()
                 except Exception:
-                    birth_date = datetime.date.today()
-            else:
-                birth_date = datetime.date.today()
+                    pass
             schedule = build_polio_schedule(birth_date)
             for idx, (period, date, vaccine) in enumerate(schedule):
                 emoji = VACC_EMOJIS[idx]
@@ -1970,29 +1986,25 @@ def webhook():
             if not saved:
                 response_text = "No past queries stored."
             else:
-                lines = []
-                for q in saved:
-                    lines.append(f"{q.get('timestamp','')} · {q.get('intent','')} · {q.get('disease','')}")
+                lines = [f"{q.get('timestamp','')} · {q.get('intent','')} · {q.get('disease','')}" for q in saved]
                 response_text = "Your last queries:\n" + '\n'.join(lines)
 
         elif intent_name == "Default Fallback Intent":
             response_text = "🤔 Sorry, I couldn't understand that."
 
-        # --- Translate final response only if user language is not English ---
-        if user_lang != "en" and intent_name not in ["disease_outbreak.general"]:
-            response_text = translate_text(response_text, f"en|{user_lang}")
+        # Translate final response if user_lang != en
+        response_text = translate_from_english(response_text, user_lang)
 
     except Exception:
         traceback.print_exc()
         response_text = "⚠️ An error occurred while processing your request."
 
-    # Save memory
     save_user_memory(user_id, memory)
-
     return jsonify({"fulfillmentText": response_text})
 
-# ----------- Run Flask -----------
+# -------- Run Flask --------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
 
