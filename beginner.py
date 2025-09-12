@@ -1106,17 +1106,16 @@ from psycopg2.extras import Json
 import psycopg2
 import os
 import traceback
-import time
-import base64
+from twilio.twiml.messaging_response import MessagingResponse
 
 app = Flask(__name__)
 
 # -------------------
 # Setup
 # -------------------
-DetectorFactory.seed = 0  # deterministic langdetect
-INDIAN_LANGUAGES = ["hi", "te", "ta", "kn", "bn", "mr", "gu", "ml", "ur", "pa", "or", "ks"]
+DetectorFactory.seed = 0  # makes langdetect deterministic
 
+INDIAN_LANGUAGES = ["hi", "te", "ta", "kn", "bn", "mr", "gu", "ml", "ur", "pa", "or", "ks"]
 SLUGS_URL = "https://raw.githubusercontent.com/INFINITE347/General_Health_stats/main/slugs.json"
 
 def load_slugs():
@@ -1136,36 +1135,46 @@ def get_slug(disease_param):
 # -------------------
 # Translation helpers
 # -------------------
-def translate_to_english(text, lang):
-    if not text or lang not in INDIAN_LANGUAGES:
-        return text
+def translate_to_english(disease_param, detected_lang):
+    if not disease_param or not disease_param.strip():
+        return disease_param
+    if detected_lang not in INDIAN_LANGUAGES:
+        return disease_param
     try:
         resp = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": text, "langpair": f"{lang}|en"}, timeout=10
+            params={"q": disease_param, "langpair": f"{detected_lang}|en"},
+            timeout=10,
         )
         resp.raise_for_status()
-        return resp.json().get("responseData", {}).get("translatedText", text)
+        data = resp.json()
+        translated = data.get("responseData", {}).get("translatedText")
+        return translated if translated else disease_param
     except Exception as e:
         print(f"MyMemory translation error (to English): {e}")
-        return text
+        return disease_param
 
-def translate_from_english(text, lang):
-    if not text or lang not in INDIAN_LANGUAGES:
+def translate_from_english(text, target_lang):
+    if not text or not text.strip():
+        return text
+    if target_lang not in INDIAN_LANGUAGES:
         return text
     try:
         resp = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": text, "langpair": f"en|{lang}"}, timeout=10
+            params={"q": text, "langpair": f"en|{target_lang}"},
+            timeout=10,
         )
         resp.raise_for_status()
-        return resp.json().get("responseData", {}).get("translatedText", text)
+        data = resp.json()
+        translated = data.get("responseData", {}).get("translatedText")
+        return translated if translated else text
     except Exception as e:
         print(f"MyMemory translation error (from English): {e}")
         return text
 
 # -------------------
-# Helper for truncation
+# Helper for safe truncation
 # -------------------
 def truncate_response(text, limit=500):
     if not text:
@@ -1177,7 +1186,7 @@ def truncate_response(text, limit=500):
     if last_dot != -1:
         return text[: last_dot + 1]
     last_space = head.rfind(' ')
-    if last_space != -1 and last_space > int(limit*0.3):
+    if last_space != -1 and last_space > int(limit * 0.3):
         return head[:last_space] + "..."
     return head
 
@@ -1190,14 +1199,21 @@ def fetch_overview(url, disease_name=""):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "overview" in tag.get_text(strip=True).lower())
-        if not heading: return None
+        if not heading:
+            return None
         paragraphs = []
         for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2","h3"]: break
-            if sibling.name == "p": paragraphs.append(sibling.get_text(strip=True))
-        if not paragraphs: return None
+            if sibling.name in ["h2","h3"]:
+                break
+            if sibling.name == "p":
+                txt = sibling.get_text(strip=True)
+                if txt:
+                    paragraphs.append(txt)
+        if not paragraphs:
+            return None
         text = " ".join(paragraphs).strip()
-        return truncate_response(f"Intent of {disease_name.capitalize()}:\n\n{text}", 500)
+        final_text = f"Intent of {disease_name.capitalize()}:\n\n{text}"
+        return truncate_response(final_text, 500)
     except Exception:
         traceback.print_exc()
         return None
@@ -1208,19 +1224,30 @@ def fetch_symptoms(url, disease_name):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "symptoms" in tag.get_text(strip=True).lower())
-        if not heading: return None
+        if not heading:
+            return None
         points = []
         for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2","h3"]: break
+            if sibling.name in ["h2","h3"]:
+                break
             if sibling.name == "ul":
                 for li in sibling.find_all("li"):
-                    points.append(f"🔹 {li.get_text(strip=True)}")
+                    txt = li.get_text(strip=True)
+                    if txt:
+                        points.append(f"🔹 {txt}")
         if not points:
             for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2","h3"]: break
-                if sibling.name == "p": points.append(f"🔹 {sibling.get_text(strip=True)}")
-        if not points: return None
-        return truncate_response(f"Intent of {disease_name.capitalize()}:\n\n" + "\n\n".join(points), 500)
+                if sibling.name in ["h2","h3"]:
+                    break
+                if sibling.name == "p":
+                    txt = sibling.get_text(strip=True)
+                    if txt:
+                        points.append(f"🔹 {txt}")
+        if not points:
+            return None
+        body = "\n\n".join(points)
+        final_text = f"Intent of {disease_name.capitalize()}:\n\n{body}"
+        return truncate_response(final_text, 500)
     except Exception:
         traceback.print_exc()
         return None
@@ -1231,19 +1258,30 @@ def fetch_treatment(url, disease_name):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and ("treatment" in tag.get_text(strip=True).lower() or "management" in tag.get_text(strip=True).lower()))
-        if not heading: return None
+        if not heading:
+            return None
         points = []
         for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2","h3"]: break
+            if sibling.name in ["h2","h3"]:
+                break
             if sibling.name == "ul":
                 for li in sibling.find_all("li"):
-                    points.append(f"💊 {li.get_text(strip=True)}")
+                    txt = li.get_text(strip=True)
+                    if txt:
+                        points.append(f"💊 {txt}")
         if not points:
             for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2","h3"]: break
-                if sibling.name == "p": points.append(f"💊 {sibling.get_text(strip=True)}")
-        if not points: return None
-        return truncate_response(f"Intent of {disease_name.capitalize()}:\n\n" + "\n\n".join(points), 500)
+                if sibling.name in ["h2","h3"]:
+                    break
+                if sibling.name == "p":
+                    txt = sibling.get_text(strip=True)
+                    if txt:
+                        points.append(f"💊 {txt}")
+        if not points:
+            return None
+        body = "\n\n".join(points)
+        final_text = f"Intent of {disease_name.capitalize()}:\n\n{body}"
+        return truncate_response(final_text, 500)
     except Exception:
         traceback.print_exc()
         return None
@@ -1254,40 +1292,52 @@ def fetch_prevention(url, disease_name):
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         heading = soup.find(lambda tag: tag.name in ["h2","h3"] and "prevention" in tag.get_text(strip=True).lower())
-        if not heading: return None
+        if not heading:
+            return None
         points = []
         for sibling in heading.find_next_siblings():
-            if sibling.name in ["h2","h3"]: break
+            if sibling.name in ["h2","h3"]:
+                break
             if sibling.name == "ul":
                 for li in sibling.find_all("li"):
-                    points.append(f"🛡️ {li.get_text(strip=True)}")
+                    txt = li.get_text(strip=True)
+                    if txt:
+                        points.append(f"🛡️ {txt}")
         if not points:
             for sibling in heading.find_next_siblings():
-                if sibling.name in ["h2","h3"]: break
-                if sibling.name == "p": points.append(f"🛡️ {sibling.get_text(strip=True)}")
-        if not points: return None
-        return truncate_response(f"Intent of {disease_name.capitalize()}:\n\n" + "\n\n".join(points), 500)
+                if sibling.name in ["h2","h3"]:
+                    break
+                if sibling.name == "p":
+                    txt = sibling.get_text(strip=True)
+                    if txt:
+                        points.append(f"🛡️ {txt}")
+        if not points:
+            return None
+        body = "\n\n".join(points)
+        final_text = f"Intent of {disease_name.capitalize()}:\n\n{body}"
+        return truncate_response(final_text, 500)
     except Exception:
         traceback.print_exc()
         return None
 
-# -------------------
-# WHO outbreak API
-# -------------------
-WHO_API_URL = ("https://www.who.int/api/emergencies/diseaseoutbreaknews"
-               "?sf_provider=dynamicProvider372&sf_culture=en"
-               "&$orderby=PublicationDateAndTime%20desc"
-               "&$expand=EmergencyEvent"
-               "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
-               "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
-               "&%24format=json&%24top=10&%24count=true")
+# ---------- WHO Outbreak API ----------
+WHO_API_URL = (
+    "https://www.who.int/api/emergencies/diseaseoutbreaknews"
+    "?sf_provider=dynamicProvider372&sf_culture=en"
+    "&$orderby=PublicationDateAndTime%20desc"
+    "&$expand=EmergencyEvent"
+    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
+    "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
+    "&%24format=json&%24top=10&%24count=true"
+)
 
 def get_who_outbreak_data():
     try:
         response = requests.get(WHO_API_URL, timeout=10)
         response.raise_for_status()
         data = response.json()
-        if "value" not in data or not data["value"]: return None
+        if "value" not in data or not data["value"]:
+            return None
         outbreaks = []
         for item in data["value"][:5]:
             title = item.get("OverrideTitle") or item.get("Title")
@@ -1299,7 +1349,7 @@ def get_who_outbreak_data():
         return None
 
 # -------------------
-# Polio vaccination
+# Polio Schedule Builder
 # -------------------
 VACC_EMOJIS = ["💉","🕒","📅","⚠️","ℹ️","🎯","👶","🏥","⚕️","✅","⏰","📢"]
 
@@ -1314,10 +1364,11 @@ def build_polio_schedule(birth_date):
     return schedule
 
 # -------------------
-# Memory setup
+# Memory (DB or in-memory)
 # -------------------
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
+    print("⚠️ DATABASE_URL not set. Using in-memory store.")
     conn = None
     _in_memory_store = {}
 else:
@@ -1329,7 +1380,8 @@ else:
         _in_memory_store = {}
 
 def create_users_table():
-    if not conn: return
+    if not conn:
+        return
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -1341,14 +1393,17 @@ def create_users_table():
         """)
         conn.commit()
         cur.close()
+        print("✅ users table is ready")
     except Exception as e:
         print(f"Error creating users table: {e}")
 
 create_users_table()
 
 def get_user_memory(user_id):
-    if not user_id: return {}
-    if not conn: return _in_memory_store.get(user_id, {}).copy()
+    if not user_id:
+        return {}
+    if not conn:
+        return _in_memory_store.get(user_id, {}).copy()
     try:
         cur = conn.cursor()
         cur.execute("SELECT context FROM users WHERE user_id = %s", (user_id,))
@@ -1356,12 +1411,15 @@ def get_user_memory(user_id):
         cur.close()
         return row[0] if row else {}
     except Exception as e:
-        print(f"DB error: {e}")
+        print(f"DB error on get_user_memory: {e}")
         return {}
 
 def save_user_memory(user_id, context):
-    if not user_id: return
-    if not conn: _in_memory_store[user_id] = context.copy(); return
+    if not user_id:
+        return
+    if not conn:
+        _in_memory_store[user_id] = context.copy()
+        return
     try:
         cur = conn.cursor()
         cur.execute("""
@@ -1373,84 +1431,60 @@ def save_user_memory(user_id, context):
         conn.commit()
         cur.close()
     except Exception as e:
-        print(f"DB error: {e}")
+        print(f"DB error on save_user_memory: {e}")
 
 # -------------------
-# AssemblyAI Speech-to-Text
-# -------------------
-ASSEMBLYAI_API_KEY = os.environ.get("ASSEMBLYAI_API_KEY")
-ASSEMBLYAI_BASE = "https://api.assemblyai.com/v2"
-ASSEMBLYAI_HEADERS = {"authorization": ASSEMBLYAI_API_KEY}
-
-def speech_to_text(file_path):
-    upload_url = f"{ASSEMBLYAI_BASE}/upload"
-    with open(file_path, "rb") as f:
-        upload_res = requests.post(upload_url, headers=ASSEMBLYAI_HEADERS, data=f)
-    audio_url = upload_res.json().get("upload_url")
-    if not audio_url: return None
-    data = {"audio_url": audio_url}
-    response = requests.post(f"{ASSEMBLYAI_BASE}/transcript", json=data, headers=ASSEMBLYAI_HEADERS)
-    transcript_id = response.json().get("id")
-    if not transcript_id: return None
-    polling_url = f"{ASSEMBLYAI_BASE}/transcript/{transcript_id}"
-    while True:
-        res = requests.get(polling_url, headers=ASSEMBLYAI_HEADERS).json()
-        status = res.get("status")
-        if status == "completed": return res.get("text")
-        elif status == "error": return None
-        time.sleep(2)
-
-# -------------------
-# Flask webhook
+# Dialogflow / API Webhook
 # -------------------
 @app.route('/webhook', methods=['POST'])
 def webhook():
     req = request.get_json(silent=True)
-    if not req: return jsonify({"fulfillmentText": "Invalid request"}), 400
+    if not req:
+        return jsonify({"fulfillmentText": "Invalid request"}), 400
 
+    # Extract info
     user_id = req.get("originalDetectIntentRequest", {}).get("payload", {}).get("user", {}).get("userId") \
               or req.get("session")
     intent_name = req.get("queryResult", {}).get("intent", {}).get("displayName", "")
     params = req.get("queryResult", {}).get("parameters", {}) or {}
     date_str = params.get("date", "")
+    disease_input = (params.get("disease", "") or "").strip()
+    if not disease_input:
+        disease_input = (params.get("any", "") or "").strip()
 
-    # --- Speech input ---
-    user_query = None
-    audio_b64 = req.get("queryResult", {}).get("inputAudio")
-    if audio_b64:
-        audio_path = "temp_audio.wav"
-        with open(audio_path, "wb") as f:
-            f.write(base64.b64decode(audio_b64))
-        user_query = speech_to_text(audio_path)
-
-    # fallback to text
-    disease_input = user_query or (params.get("disease","") or params.get("any","")).strip()
-
-    # -------------------
     # Load memory
     memory = get_user_memory(user_id) or {}
-    memory.setdefault("last_disease","")
-    memory.setdefault("user_lang","en")
-    memory.setdefault("last_queries",[])
+    if "last_disease" not in memory:
+        memory["last_disease"] = ""
+    if "user_lang" not in memory:
+        memory["user_lang"] = "en"
+    if "last_queries" not in memory or not isinstance(memory.get("last_queries"), list):
+        memory["last_queries"] = []
 
+    # Detect language
     try:
-        detected_lang = detect(disease_input) if disease_input else memory.get("user_lang","en")
+        if disease_input:
+            detected_lang = detect(disease_input)
+        else:
+            detected_lang = memory.get("user_lang", "en")
     except Exception:
-        detected_lang = memory.get("user_lang","en")
+        detected_lang = memory.get("user_lang", "en")
 
+    # Translate if needed
     if disease_input:
         translated = translate_to_english(disease_input, detected_lang) or disease_input
         disease_param = (translated or "").strip().lower()
         user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
     else:
-        disease_param = memory.get("last_disease","")
-        user_lang = memory.get("user_lang","en")
+        disease_param = memory.get("last_disease", "") or ""
+        user_lang = memory.get("user_lang", "en")
 
+    # Update memory
     if disease_param:
         memory["last_disease"] = disease_param
     memory["user_lang"] = user_lang
-
     now_iso = datetime.datetime.utcnow().isoformat()
+    memory.setdefault("last_queries", [])
     memory["last_queries"].append({
         "intent": intent_name,
         "disease": disease_param,
@@ -1459,66 +1493,77 @@ def webhook():
     })
     memory["last_queries"] = memory["last_queries"][-5:]
 
-    # -------------------
     # Build response
     response_text = "Sorry, I don't understand your request."
     try:
         if intent_name == "get_disease_overview":
+            response_text = ""
             if not disease_param:
-                response_text = "📖 DISEASE OVERVIEW\n\nNo disease provided and no history available."
+                response_text = "📖 DISEASE OVERVIEW\n\nNo disease provided."
             else:
+                response_text = "📖 DISEASE OVERVIEW\n\n"
                 slug = get_slug(disease_param)
                 if slug:
                     url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-                    overview = fetch_overview(url, disease_param)
-                    response_text = "📖 DISEASE OVERVIEW\n\n" + (overview or f"Overview not found for {disease_param.capitalize()}. Read more here: {url}")
+                    overview = fetch_overview(url, disease_param) or None
+                    response_text += overview or f"Overview not found for {disease_param.capitalize()}."
                 else:
-                    response_text = f"Disease not found. Make sure to use a valid disease name."
+                    response_text += f"Disease not found. Use a valid name."
 
         elif intent_name == "get_symptoms":
+            response_text = ""
             if not disease_param:
-                response_text = "🤒 SYMPTOMS\n\nNo disease provided and no history available."
+                response_text = "🤒 SYMPTOMS\n\nNo disease provided."
             else:
+                response_text = "🤒 SYMPTOMS\n\n"
                 slug = get_slug(disease_param)
                 if slug:
                     url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
                     symptoms = fetch_symptoms(url, disease_param)
-                    response_text = "🤒 SYMPTOMS\n\n" + (symptoms or f"Symptoms not found for {disease_param.capitalize()}.")
+                    response_text += symptoms or f"Symptoms not found for {disease_param.capitalize()}."
                 else:
-                    response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+                    response_text += f"No URL for {disease_param.capitalize()}."
 
         elif intent_name == "get_treatment":
+            response_text = ""
             if not disease_param:
-                response_text = "💊 TREATMENT\n\nNo disease provided and no history available."
+                response_text = "💊 TREATMENT\n\nNo disease provided."
             else:
+                response_text = "💊 TREATMENT\n\n"
                 slug = get_slug(disease_param)
                 if slug:
                     url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
                     treatment = fetch_treatment(url, disease_param)
-                    response_text = "💊 TREATMENT\n\n" + (treatment or f"Treatment not found for {disease_param.capitalize()}.")
+                    response_text += treatment or f"Treatment not found for {disease_param.capitalize()}."
                 else:
-                    response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+                    response_text += f"No URL for {disease_param.capitalize()}."
 
         elif intent_name == "get_prevention":
+            response_text = ""
             if not disease_param:
-                response_text = "🛡️ PREVENTION\n\nNo disease provided and no history available."
+                response_text = "🛡️ PREVENTION\n\nNo disease provided."
             else:
+                response_text = "🛡️ PREVENTION\n\n"
                 slug = get_slug(disease_param)
                 if slug:
                     url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
                     prevention = fetch_prevention(url, disease_param)
-                    response_text = "🛡️ PREVENTION\n\n" + (prevention or f"Prevention not found for {disease_param.capitalize()}.")
+                    response_text += prevention or f"Prevention not found for {disease_param.capitalize()}."
                 else:
-                    response_text = f"Sorry, I don't have a URL for {disease_param.capitalize()}."
+                    response_text += f"No URL for {disease_param.capitalize()}."
 
         elif intent_name == "disease_outbreak.general":
-            updates_lang = detected_lang
+            updates_input = (params.get("any", "") or "").strip()
+            try:
+                updates_lang = detect(updates_input) if updates_input else memory.get("user_lang", "en")
+            except Exception:
+                updates_lang = memory.get("user_lang", "en")
             response_text = "🌍 LATEST OUTBREAK NEWS\n\n"
             outbreaks = get_who_outbreak_data()
-            if outbreaks:
-                response_text += "\n\n".join(outbreaks)
-            else:
+            if not outbreaks:
                 response_text += "⚠️ Unable to fetch outbreak data."
+            else:
+                response_text += "🦠 Latest WHO Outbreak News:\n\n" + "\n\n".join(outbreaks)
             response_text = translate_from_english(response_text, updates_lang)
 
         elif intent_name == "get_vaccine":
@@ -1530,51 +1575,51 @@ def webhook():
                     birth_date = datetime.date.today()
             else:
                 birth_date = datetime.date.today()
-
             schedule = build_polio_schedule(birth_date)
-            lines = [f"{VACC_EMOJIS[idx]} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}" for idx, (period, date, vaccine) in enumerate(schedule)]
-            extra_steps = [
-                ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
-                ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
-                ("🎯", "Purpose: Prevents life-long paralysis & disability"),
-                ("👶", "Gender: For all children"),
-                ("🏥", "Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers"),
-                ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
-                ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
-                ("⏰", f"Next Dose Reminder: Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} ({schedule[1][2]})"),
-                ("📢", "Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days")
-            ]
-            for emoji, text in extra_steps:
-                lines.append(f"{emoji} {text}")
-            response_text += "\n".join(lines)
-
-        elif intent_name == "get_last_queries":
-            saved = memory.get("last_queries", [])
-            if saved:
-                lines = [f"{q.get('timestamp','')} · {q.get('intent','')} · {q.get('disease','')}" for q in saved]
-                response_text = "Your last queries (most recent last):\n\n" + "\n".join(lines)
-            else:
-                response_text = "No past queries stored for you."
-
-        elif intent_name == "Default Fallback Intent":
-            response_text = "🤔 Sorry, I couldn't understand that. Please provide a disease name or try rephrasing your question."
-
-        if intent_name != "disease_outbreak.general":
+            for label, d, vac in schedule:
+                response_text += f"{VACC_EMOJIS[0]} {label}: {vac}\n"
             response_text = translate_from_english(response_text, user_lang)
 
     except Exception:
         traceback.print_exc()
-        response_text = "⚠️ An error occurred while processing your request."
+        response_text = "❌ Something went wrong while fetching data."
 
-    try:
-        save_user_memory(user_id, memory)
-    except Exception as e:
-        print(f"Failed to save memory: {e}")
+    # Save memory
+    save_user_memory(user_id, memory)
 
     return jsonify({"fulfillmentText": response_text})
+
+# -------------------
+# Twilio SMS Integration
+# -------------------
+@app.route('/sms', methods=['POST'])
+def sms_webhook():
+    incoming_msg = request.form.get('Body', '').strip()
+    from_number = request.form.get('From', '')
+
+    pseudo_req = {
+        "queryResult": {
+            "parameters": {"any": incoming_msg},
+            "intent": {"displayName": "Default Fallback Intent"}
+        },
+        "originalDetectIntentRequest": {
+            "payload": {"user": {"userId": from_number}}
+        },
+        "session": from_number
+    }
+
+    # Call webhook logic
+    with app.test_request_context('/webhook', method='POST', json=pseudo_req):
+        resp_json = webhook().get_json()
+        reply_text = resp_json.get("fulfillmentText", "Sorry, I couldn't process your request.")
+
+    twilio_resp = MessagingResponse()
+    twilio_resp.message(reply_text)
+    return str(twilio_resp)
 
 # -------------------
 # Run Flask
 # -------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
