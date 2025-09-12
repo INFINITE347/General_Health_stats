@@ -1730,14 +1730,21 @@ def truncate_response(text, limit=500):
     return head
 
 # -------- WHO Scraping Helpers --------
-def fetch_section(url, heading_keywords, bullet_emoji='🔹'):
+def fetch_section(url, heading_keywords, bullet_emoji='🔹', max_chars=490):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, 'html.parser')
-        heading = soup.find(lambda tag: tag.name in ["h2","h3"] and any(k in tag.get_text(strip=True).lower() for k in heading_keywords))
+        
+        # Find heading matching any of the keywords
+        heading = soup.find(
+            lambda tag: tag.name in ["h2","h3"] 
+            and any(k in tag.get_text(strip=True).lower() for k in heading_keywords)
+        )
         if not heading:
             return None
+        
+        # Collect bullet points
         points = []
         for sibling in heading.find_next_siblings():
             if sibling.name in ["h2","h3"]:
@@ -1749,12 +1756,18 @@ def fetch_section(url, heading_keywords, bullet_emoji='🔹'):
             elif sibling.name == 'p':
                 txt = sibling.get_text(strip=True)
                 if txt: points.append(f"{bullet_emoji} {txt}")
+        
         if not points:
             return None
-        return '\n'.join(points)
+        
+        # Join points and truncate to max_chars
+        full_text = '\n'.join(points)
+        return truncate_response(full_text, limit=max_chars)
+    
     except Exception:
         traceback.print_exc()
         return None
+
 
 # -------- WHO Outbreak API --------
 WHO_API_URL = (
