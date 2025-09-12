@@ -1659,7 +1659,7 @@ WHO_API_URL = (
     "?sf_provider=dynamicProvider372&sf_culture=en"
     "&$orderby=PublicationDateAndTime%20desc"
     "&$expand=EmergencyEvent"
-    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries," 
+    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
     "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
     "&%24format=json&%24top=10&%24count=true"
 )
@@ -1833,7 +1833,7 @@ def get_who_outbreak_data():
         traceback.print_exc()
         return None
 
-# ----------- Webhook Route -----------
+# ----------- Webhook Input Processing -----------
 @app.route('/webhook', methods=['POST'])
 def webhook():
     req = request.get_json(silent=True)
@@ -1845,24 +1845,33 @@ def webhook():
     params = req.get("queryResult", {}).get("parameters", {}) or {}
 
     date_str = params.get("date", "")
-    disease_input = (params.get("disease", "") or params.get("any", "")).strip().lower()
+    disease_input = (params.get("disease", "") or params.get("any", "")).strip()
 
     memory = get_user_memory(user_id) or {}
     memory.setdefault("last_disease", "")
     memory.setdefault("user_lang", "en")
     memory.setdefault("last_queries", [])
 
+    # Detect language
     try:
         detected_lang = detect(disease_input) if disease_input else memory.get("user_lang", "en")
     except Exception:
         detected_lang = memory.get("user_lang", "en")
 
+    # --- NEW LOGIC ---
     if disease_input:
-        disease_param = translate_text(disease_input, f"{detected_lang}|en").lower()
+        # User provided a parameter → do not fetch from memory, just store
+        if detected_lang == "en":
+            disease_param = disease_input.lower()
+        else:
+            disease_param = translate_text(disease_input, f"{detected_lang}|en").lower()
         user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
+        memory["last_disease"] = disease_param  # save provided param
     else:
+        # No param → fetch from memory
         disease_param = memory.get("last_disease", "")
         user_lang = memory.get("user_lang", "en")
+
         # Update memory with current disease and language
     
     if disease_param:
