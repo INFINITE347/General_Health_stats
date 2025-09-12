@@ -1858,24 +1858,23 @@ def webhook():
     except Exception:
         detected_lang = memory.get("user_lang", "en")
 
-    # --- NEW LOGIC ---
+    # --- Logic for disease input ---
     if disease_input:
         # User provided a parameter → do not fetch from memory, just store
         if detected_lang == "en":
             disease_param = disease_input.lower()
+            user_lang = "en"
         else:
             disease_param = translate_text(disease_input, f"{detected_lang}|en").lower()
-        user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
-        memory["last_disease"] = disease_param  # save provided param
+            user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
+        memory["last_disease"] = disease_param
     else:
         # No param → fetch from memory
         disease_param = memory.get("last_disease", "")
         user_lang = memory.get("user_lang", "en")
 
-        # Update memory with current disease and language
-    
-    if disease_param:
-        memory["last_disease"] = disease_param
+    # Update memory
+    memory["last_disease"] = disease_param
     memory["user_lang"] = user_lang
 
     now_iso = datetime.datetime.utcnow().isoformat()
@@ -1891,6 +1890,7 @@ def webhook():
     response_text = "Sorry, I don't understand your request."
 
     try:
+        # --- Intent Handling ---
         if intent_name == "get_disease_overview":
             response_text = "📖 Disease Overview\n"
             if not disease_param:
@@ -1978,8 +1978,8 @@ def webhook():
         elif intent_name == "Default Fallback Intent":
             response_text = "🤔 Sorry, I couldn't understand that."
 
-        # Translate final response if needed
-        if intent_name not in ["disease_outbreak.general"]:
+        # --- Translate final response only if user language is not English ---
+        if user_lang != "en" and intent_name not in ["disease_outbreak.general"]:
             response_text = translate_text(response_text, f"en|{user_lang}")
 
     except Exception:
@@ -1994,4 +1994,5 @@ def webhook():
 # ----------- Run Flask -----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 
