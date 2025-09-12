@@ -1656,12 +1656,9 @@ SLUGS_URL = "https://raw.githubusercontent.com/INFINITE347/General_Health_stats/
 VACC_EMOJIS = ["💉","🕒","📅","⚠️","ℹ️","🎯","👶","🏥","⚕️","✅","⏰","📢"]
 WHO_API_URL = (
     "https://www.who.int/api/emergencies/diseaseoutbreaknews"
-    "?sf_provider=dynamicProvider372&sf_culture=en"
-    "&$orderby=PublicationDateAndTime%20desc"
-    "&$expand=EmergencyEvent"
-    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries,"
-    "ItemDefaultUrl,FormattedDate,PublicationDateAndTime"
-    "&%24format=json&%24top=10&%24count=true"
+    "?$orderby=PublicationDateAndTime%20desc&$expand=EmergencyEvent"
+    "&$select=Title,TitleSuffix,OverrideTitle,UseOverrideTitle,regionscountries," 
+    "ItemDefaultUrl,FormattedDate,PublicationDateAndTime&$format=json&$top=10&$count=true"
 )
 
 # ----------- Caches -----------
@@ -1729,13 +1726,14 @@ def translate_text(text, langpair):
     src, tgt = langpair.split('|')
     if src == tgt:
         return text  # skip translation if same language
-    key = (text, langpair)
+    text_to_translate = text[:500]  # limit to 500 chars
+    key = (text_to_translate, langpair)
     if key in translation_cache:
         return translation_cache[key]
     try:
         resp = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": text, "langpair": langpair},
+            params={"q": text_to_translate, "langpair": langpair},
             timeout=10
         )
         resp.raise_for_status()
@@ -1743,14 +1741,15 @@ def translate_text(text, langpair):
         translated = data.get("responseData", {}).get("translatedText")
         if translated:
             translation_cache[key] = translated
+            if len(text) > 500:
+                translated += "..."
             return translated
     except Exception as e:
         print(f"Translation error ({langpair}): {e}")
     translation_cache[key] = text
     return text
 
-
-def fetch_section(url, heading_keywords, bullet_emoji='', max_chars=500):
+def fetch_section(url, heading_keywords, bullet_emoji='🔹', max_chars=500):
     try:
         r = requests.get(url, timeout=10)
         r.raise_for_status()
@@ -1769,7 +1768,7 @@ def fetch_section(url, heading_keywords, bullet_emoji='', max_chars=500):
                 txt = sibling.get_text(strip=True)
                 if txt: points.append(f"{bullet_emoji} {txt}")
         if not points: return None
-        return truncate_response(' '.join(points), max_chars)
+        return '\n'.join(points)[:max_chars]  # truncated and each point on new line
     except Exception:
         traceback.print_exc()
         return None
@@ -1807,12 +1806,12 @@ def save_user_memory(user_id, context):
 
 def build_polio_schedule(birth_date):
     schedule = [
-        ("At Birth (within 15 days)", birth_date, "OPV-0"),
-        ("6 Weeks", birth_date + datetime.timedelta(weeks=6), "OPV-1 + IPV-1"),
-        ("10 Weeks", birth_date + datetime.timedelta(weeks=10), "OPV-2"),
-        ("14 Weeks", birth_date + datetime.timedelta(weeks=14), "OPV-3 + IPV-2"),
-        ("16–24 Months", birth_date + datetime.timedelta(weeks=72), "OPV + IPV Boosters"),
-        ("5 Years", birth_date + datetime.timedelta(weeks=260), "OPV Booster")
+        ("💉 At Birth (within 15 days)", birth_date, "OPV-0"),
+        ("🕒 6 Weeks", birth_date + datetime.timedelta(weeks=6), "OPV-1 + IPV-1"),
+        ("📅 10 Weeks", birth_date + datetime.timedelta(weeks=10), "OPV-2"),
+        ("⚕️ 14 Weeks", birth_date + datetime.timedelta(weeks=14), "OPV-3 + IPV-2"),
+        ("🏥 16–24 Months", birth_date + datetime.timedelta(weeks=72), "OPV + IPV Boosters"),
+        ("✅ 5 Years", birth_date + datetime.timedelta(weeks=260), "OPV Booster")
     ]
     return schedule
 
@@ -1831,100 +1830,3 @@ def get_who_outbreak_data():
         traceback.print_exc()
         return None
 
-# ----------- Webhook Route -----------
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    req = request.get_json(silent=True)
-    if not req:
-        return jsonify({"fulfillmentText": "Invalid request"}), 400
-
-    user_id = req.get("originalDetectIntentRequest", {}).get("payload", {}).get("user", {}).get("userId") or req.get("session")
-    intent_name = req.get("queryResult", {}).get("intent", {}).get("displayName", "")
-    params = req.get("queryResult", {}).get("parameters", {}) or {}
-
-    date_str = params.get("date", "")
-    disease_input = (params.get("disease", "") or params.get("any", "")).strip()
-
-    memory = get_user_memory(user_id) or {}
-    memory.setdefault("last_disease", "")
-    memory.setdefault("user_lang", "en")
-    memory.setdefault("last_queries", [])
-
-    try:
-        detected_lang = detect(disease_input) if disease_input else memory.get("user_lang", "en")
-    except Exception:
-        detected_lang = memory.get("user_lang", "en")
-
-    if disease_input:
-        disease_param = translate_text(disease_input, f"{detected_lang}|en").lower()
-        user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
-    else:
-        disease_param = memory.get("last_disease", "")
-        user_lang = memory.get("user_lang", "en")
-
-    memory["last_disease"] = disease_param
-    memory["user_lang"] = user_lang
-    memory["last_queries"].append({"intent": intent_name, "disease": disease_param, "user_lang": user_lang, "timestamp": datetime.datetime.utcnow().isoformat()})
-    memory["last_queries"] = memory["last_queries"][-5:]
-
-    response_text = "Sorry, I don't understand your request."
-
-    try:
-        if intent_name == "get_disease_overview":
-            response_text = disease_param and f"📖 DISEASE OVERVIEW\n\n{fetch_section(f'https://www.who.int/news-room/fact-sheets/detail/{get_slug(disease_param)}', ['overview']) or 'Overview not found.'}" or "📖 DISEASE OVERVIEW\n\nNo disease provided."
-        elif intent_name == "get_symptoms":
-            response_text = disease_param and f"🤒 SYMPTOMS\n\n{fetch_section(f'https://www.who.int/news-room/fact-sheets/detail/{get_slug(disease_param)}', ['symptom'], '🔹') or 'Symptoms not found.'}" or "🤒 SYMPTOMS\n\nNo disease provided."
-        elif intent_name == "get_treatment":
-            response_text = disease_param and f"💊 TREATMENT\n\n{fetch_section(f'https://www.who.int/news-room/fact-sheets/detail/{get_slug(disease_param)}', ['treatment','management'], '💊') or 'Treatment not found.'}" or "💊 TREATMENT\n\nNo disease provided."
-        elif intent_name == "get_prevention":
-            response_text = disease_param and f"🛡️ PREVENTION\n\n{fetch_section(f'https://www.who.int/news-room/fact-sheets/detail/{get_slug(disease_param)}', ['prevention'], '🛡️') or 'Prevention not found.'}" or "🛡️ PREVENTION\n\nNo disease provided."
-        elif intent_name == "disease_outbreak.general":
-            outbreaks = get_who_outbreak_data()
-            response_text = "🌍 LATEST OUTBREAK NEWS\n\n" + ('\n\n'.join(outbreaks) if outbreaks else '⚠️ Unable to fetch outbreak data.')
-            response_text = translate_text(response_text, f"en|{user_lang}")
-        elif intent_name == "get_vaccine":
-            try:
-                birth_date = datetime.datetime.strptime(date_str.split('T')[0], '%Y-%m-%d').date() if date_str else datetime.date.today()
-            except Exception:
-                birth_date = datetime.date.today()
-            schedule = build_polio_schedule(birth_date)
-            lines = [f"{VACC_EMOJIS[idx]} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}" for idx, (period, date, vaccine) in enumerate(schedule)]
-            extra_steps = [
-                ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
-                ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
-                ("🎯", "Purpose: Prevents life-long paralysis & disability"),
-                ("👶", "Gender: For all children"),
-                ("🏥", "Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers"),
-                ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
-                ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
-                ("⏰", f"Next Dose Reminder: Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} ({schedule[1][2]})"),
-                ("📢", "Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days")
-            ]
-            for emoji, text in extra_steps:
-                lines.append(f"{emoji} {text}")
-            response_text = "💉 POLIO VACCINATION SCHEDULE\n\n" + "\n".join(lines)
-        elif intent_name == "get_last_queries":
-            saved = memory.get("last_queries", [])
-            if not saved:
-                response_text = "No past queries stored for you."
-            else:
-                response_text = "Your last queries (most recent last):\n\n" + '\n'.join([f"{q.get('timestamp','')} · {q.get('intent','')} · {q.get('disease','')}" for q in saved])
-        elif intent_name == "Default Fallback Intent":
-            response_text = "🤔 Sorry, I couldn't understand that. Please provide a disease name or try rephrasing your question."
-
-        if intent_name != "disease_outbreak.general":
-            response_text = translate_text(response_text, f"en|{user_lang}")
-
-    except Exception:
-        traceback.print_exc()
-        response_text = "⚠️ An error occurred while processing your request."
-
-    try:
-        save_user_memory(user_id, memory)
-    except Exception as e:
-        print(f"Failed to save memory: {e}")
-
-    return jsonify({"fulfillmentText": response_text})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
