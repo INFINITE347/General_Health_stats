@@ -2104,6 +2104,10 @@ def get_slug(disease_param):
     return slugs.get(key)
 
 # -------- Translation helpers --------
+# Add your Gmail here
+
+MYMEMORY_EMAIL = "yarramradheshreddy@gmail.com"
+
 def translate_to_english(disease_param, detected_lang):
     """Translate incoming Indian language param to English. Skip if English."""
     if not disease_param or detected_lang == "en":
@@ -2113,7 +2117,11 @@ def translate_to_english(disease_param, detected_lang):
     try:
         resp = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": disease_param, "langpair": f"{detected_lang}|en"},
+            params={
+                "q": disease_param,
+                "langpair": f"{detected_lang}|en",
+                "de": MYMEMORY_EMAIL  # Gmail ID to increase quota
+            },
             timeout=10
         )
         resp.raise_for_status()
@@ -2124,6 +2132,7 @@ def translate_to_english(disease_param, detected_lang):
         print(f"Translation error (to English): {e}")
         return disease_param
 
+
 def translate_from_english(text, target_lang):
     """Translate English response to Indian language if needed."""
     if not text or target_lang == "en":
@@ -2133,7 +2142,11 @@ def translate_from_english(text, target_lang):
     try:
         resp = requests.get(
             "https://api.mymemory.translated.net/get",
-            params={"q": text, "langpair": f"en|{target_lang}"},
+            params={
+                "q": text,
+                "langpair": f"en|{target_lang}",
+                "de": MYMEMORY_EMAIL  # Gmail ID to increase quota
+            },
             timeout=10
         )
         resp.raise_for_status()
