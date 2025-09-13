@@ -1761,7 +1761,7 @@ def fetch_section(url, heading_keywords, bullet_emoji='🔹', max_chars=490):
             return None
         
         # Join points and truncate to max_chars
-        full_text = '\n'.join(points)
+        full_text = '\n\n'.join(points)
         return truncate_response(full_text, limit=max_chars)
     
     except Exception:
@@ -1925,7 +1925,7 @@ def webhook():
 
     try:
         if intent_name == "get_disease_overview":
-            response_text = "📖 DISEASE OVERVIEW\n\n"
+            response_text = "📖 DISEASE OVERVIEW OF {disease_param}\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1938,7 +1938,7 @@ def webhook():
                     response_text += f"Disease not found: {disease_param}."
 
         elif intent_name == "get_symptoms":
-            response_text = "🤒 SYMPTOMS\n\n"
+            response_text = "🤒 SYMPTOMS OF {disease_param}\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1951,7 +1951,7 @@ def webhook():
                     response_text += f"No URL found for {disease_param}."
 
         elif intent_name == "get_treatment":
-            response_text = "💊 TREATMENT\n\n"
+            response_text = "💊 TREATMENT OF {disease_param}\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1964,7 +1964,7 @@ def webhook():
                     response_text += f"No URL found for {disease_param}."
 
         elif intent_name == "get_prevention":
-            response_text = "🛡️ PREVENTION\n\n"
+            response_text = "🛡️ PREVENTION OF {disease_param}\n\n"
             if not disease_param:
                 response_text += "No disease provided."
             else:
@@ -1989,10 +1989,42 @@ def webhook():
                     birth_date = datetime.datetime.strptime(date_str.split("T")[0], "%Y-%m-%d").date()
                 except Exception:
                     pass
+        
             schedule = build_polio_schedule(birth_date)
             for idx, (period, date, vaccine) in enumerate(schedule):
                 emoji = VACC_EMOJIS[idx]
                 response_text += f"{emoji} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}\n"
+        
+            # --- Extra Information Block ---
+            extra_info = [
+                ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
+                ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
+                ("🎯", "Purpose: Prevents life-long paralysis & disability"),
+                ("👶", "Gender: For all children"),
+                ("🏥", "Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers"),
+                ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
+                ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
+                ("⏰", f"Next Dose Reminder: Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} ({schedule[1][2]})"),
+                ("📢", "Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days")
+            ]
+        
+            response_text += "\n\n📘 ADDITIONAL INFORMATION\n"
+            for emoji, text in extra_info:
+                response_text += f"{emoji} {text}\n"
+
+
+        # elif intent_name == "get_vaccine":
+        #     response_text = "💉 POLIO VACCINATION SCHEDULE\n\n"
+        #     birth_date = datetime.date.today()
+        #     if date_str:
+        #         try:
+        #             birth_date = datetime.datetime.strptime(date_str.split("T")[0], "%Y-%m-%d").date()
+        #         except Exception:
+        #             pass
+        #     schedule = build_polio_schedule(birth_date)
+        #     for idx, (period, date, vaccine) in enumerate(schedule):
+        #         emoji = VACC_EMOJIS[idx]
+        #         response_text += f"{emoji} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}\n"
 
         elif intent_name == "get_last_queries":
             saved = memory.get("last_queries", [])
