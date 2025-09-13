@@ -2530,7 +2530,6 @@ def webhook():
                 ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
                 ("🎯", "Purpose: Prevents life-long paralysis & disability"),
                 ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
-                ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
             ]
 
             response_text += "\n\n📘 ADDITIONAL INFORMATION\n"
