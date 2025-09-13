@@ -2013,7 +2013,9 @@ def webhook():
         response_text = "⚠️ An error occurred while processing your request."
 
     save_user_memory(user_id, memory)
+    # return jsonify({"fulfillmentText": response_text})
     return jsonify({"fulfillmentText": response_text})
+    
 
 # -------- Run Flask --------
 if __name__ == "__main__":
