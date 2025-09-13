@@ -2526,10 +2526,9 @@ def webhook():
 
             # --- Extra Information Block ---
             extra_info = [
-                ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
-                ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
-                ("🎯", "Purpose: Prevents life-long paralysis & disability"),
-                ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
+                ("⚠️", "Disease & Symptoms: Polio causes fever,weakness,headache,vomiting,stiffness,paralysis"),
+                ("ℹ️", "About the Vaccine: OPV (oral drops),IPV (injection)"),
+                ("⚕️", "Side Effects: Safe; rarely mild fever."),
             ]
 
             response_text += "\n\n📘 ADDITIONAL INFORMATION\n"
