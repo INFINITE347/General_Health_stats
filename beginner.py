@@ -1979,7 +1979,7 @@ def webhook():
         elif intent_name == "disease_outbreak.general":
             response_text = "🌍 LATEST OUTBREAK NEWS\n\n"
             outbreaks = get_who_outbreak_data()
-            response_text += '\n'.join(outbreaks) if outbreaks else "Unable to fetch outbreak data."
+            response_text += '\n\n'.join(outbreaks) if outbreaks else "Unable to fetch outbreak data."
 
         elif intent_name == "get_vaccine":
             response_text = "💉 POLIO VACCINATION SCHEDULE\n\n"
@@ -2000,17 +2000,13 @@ def webhook():
                 ("⚠️", "Disease & Symptoms: Polio causes fever, weakness, headache, vomiting, stiffness, paralysis"),
                 ("ℹ️", "About the Vaccine: OPV (oral drops), IPV (injection), free under Govt."),
                 ("🎯", "Purpose: Prevents life-long paralysis & disability"),
-                ("👶", "Gender: For all children"),
-                ("🏥", "Where to Get: Govt hospitals, PHCs, Anganwadis, ASHA workers"),
                 ("⚕️", "Side Effects: Safe; rarely mild fever. Consult doctor if severe"),
                 ("✅", "After Vaccination: Feed normally, stay 30 mins at centre, don’t skip future doses"),
-                ("⏰", f"Next Dose Reminder: Next after birth dose: {schedule[1][1].strftime('%d-%b-%Y')} ({schedule[1][2]})"),
-                ("📢", "Pulse Polio Campaign: Even if vaccinated, attend Pulse Polio days")
             ]
         
             response_text += "\n\n📘 ADDITIONAL INFORMATION\n"
             for emoji, text in extra_info:
-                response_text += f"{emoji} {text}\n"
+                response_text += f"{emoji} {text}\n\n"
 
 
         # elif intent_name == "get_vaccine":
