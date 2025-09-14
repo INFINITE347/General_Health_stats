@@ -11,3 +11,4 @@ psycopg2-binary
 twilio
 google-cloud-dialogflow
 google-auth
+protobuf
