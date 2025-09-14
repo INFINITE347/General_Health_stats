@@ -2590,26 +2590,27 @@ if not PROJECT_ID or not google_creds_json:
 credentials_info = json.loads(google_creds_json)
 GOOGLE_CREDENTIALS = service_account.Credentials.from_service_account_info(credentials_info)
 def detect_intent_text(session_id, text, language_code="en"):
+    """
+    Send text to Dialogflow and get the fulfillment response
+    """
     try:
         session_client = dialogflow.SessionsClient(credentials=GOOGLE_CREDENTIALS)
         session = session_client.session_path(PROJECT_ID, session_id)
         text_input = dialogflow.TextInput(text=text, language_code=language_code)
         query_input = dialogflow.QueryInput(text=text_input)
+
         response = session_client.detect_intent(session=session, query_input=query_input)
-        parameters = MessageToDict(response.query_result.parameters)
-        disease_name = parameters.get("disease")
-        return {
-            "fulfillment_text": response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand.",
-            "parameters": parameters,
-            "disease": disease_name
-        }
+
+        # Extract parameters safely
+        parameters = dict(response.query_result.parameters)
+        disease_name = parameters.get("disease") or parameters.get("any")
+
+        return response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand.", disease_name
+
     except Exception:
         traceback.print_exc()
-        return {
-            "fulfillment_text": "⚠️ Something went wrong while connecting to Dialogflow.",
-            "parameters": {},
-            "disease": None
-        }
+        return "⚠️ Something went wrong while connecting to Dialogflow.", None
+
 
 # ------------------- WhatsApp Webhook -------------------
 @app.route("/whatsapp_webhook", methods=["POST"])
