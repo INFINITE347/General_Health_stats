@@ -2075,11 +2075,11 @@ import datetime
 from psycopg2.extras import Json
 import psycopg2
 import os
-import traceback
 import json
 from twilio.twiml.messaging_response import MessagingResponse
 from google.cloud import dialogflow_v2 as dialogflow
 from google.oauth2 import service_account
+import traceback
 
 
 app = Flask(__name__)
@@ -2573,16 +2573,7 @@ def webhook():
 
     save_user_memory(user_id, memory)
     return jsonify({"fulfillmentText": response_text})
-# -------------------
-import os
-import json
-from flask import Flask, request
-from twilio.twiml.messaging_response import MessagingResponse
-from google.cloud import dialogflow_v2 as dialogflow
-from google.oauth2 import service_account
-import traceback
-
-app = Flask(__name__)
+# ------------------
 
 # ----------------------
 # Dialogflow setup
