@@ -2620,13 +2620,11 @@ def whatsapp_webhook():
         from_number = request.form.get("From")
         session_id = from_number or "default_user"
 
-        # Call Dialogflow
-        result = detect_intent_text(session_id, incoming_msg)
-        reply_text = result["fulfillment_text"]
+        # Detect intent & disease
+        reply_text, disease_name = detect_intent_text(session_id, incoming_msg)
 
-        # If a disease was detected, fetch overview from WHO
-        if result["disease"]:
-            disease_name = result["disease"]
+        # Fetch WHO overview if disease detected
+        if disease_name:
             slug = get_slug(disease_name)
             if slug:
                 url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
@@ -2636,11 +2634,17 @@ def whatsapp_webhook():
                 else:
                     reply_text += f"\n\nOverview not found for {disease_name}."
             else:
-                reply_text += f"\n\nDisease not found in WHO database: {disease_name}."
+                reply_text += f"\n\nDisease not found in WHO database: {disease_name}"
 
-        # Send reply via Twilio
+        # Send Twilio response
         twilio_resp = MessagingResponse()
         twilio_resp.message(reply_text)
+        return str(twilio_resp)
+
+    except Exception as e:
+        traceback.print_exc()
+        twilio_resp = MessagingResponse()
+        twilio_resp.message("⚠️ Something went wrong. Please try again later.")
         return str(twilio_resp)
 
     except Exception as e:
