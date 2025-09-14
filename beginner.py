@@ -2613,45 +2613,98 @@ def detect_intent_text(session_id, text, language_code="en"):
 
 
 # ------------------- WhatsApp Webhook -------------------
+
+# ------------------- WhatsApp Webhook -------------------
 @app.route("/whatsapp_webhook", methods=["POST"])
 def whatsapp_webhook():
     try:
+        # ------------------- Incoming Message -------------------
         incoming_msg = request.form.get("Body")
         from_number = request.form.get("From")
         session_id = from_number or "default_user"
 
-        # Detect intent & disease
-        reply_text, disease_name = detect_intent_text(session_id, incoming_msg)
+        # ------------------- Persistent Memory -------------------
+        memory = get_user_memory(session_id) or {}
+        memory.setdefault("user_lang", "en")
+        memory.setdefault("last_disease", "")
+        memory.setdefault("last_queries", [])
 
-        # Fetch WHO overview if disease detected
-        if disease_name:
-            slug = get_slug(disease_name)
+        # Detect user language
+        try:
+            detected_lang = detect(incoming_msg) if incoming_msg else memory.get("user_lang", "en")
+        except Exception:
+            detected_lang = memory.get("user_lang", "en")
+        user_lang = detected_lang if detected_lang in INDIAN_LANGUAGES else "en"
+
+        # Translate message to English for Dialogflow
+        english_text = translate_to_english(incoming_msg, detected_lang)
+
+        # ------------------- Dialogflow Intent -------------------
+        fulfillment_text, parameters = detect_intent_text(session_id, english_text)
+        disease_param = parameters.get("disease") or memory.get("last_disease", "")
+        intent_name = parameters.get("intent") or ""  # You can optionally store intent in parameters
+
+        # Update persistent memory
+        memory["last_disease"] = disease_param
+        memory["user_lang"] = user_lang
+        memory["last_queries"].append({
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "intent": intent_name,
+            "disease": disease_param
+        })
+        memory["last_queries"] = memory["last_queries"][-5:]
+        save_user_memory(session_id, memory)
+
+        # ------------------- Build Response -------------------
+        response_text = fulfillment_text or "🤔 Sorry, I didn't understand that."
+
+        # Disease-related intents
+        if disease_param:
+            slug = get_slug(disease_param.lower())
             if slug:
                 url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
-                overview = fetch_overview(url, disease_name)
-                if overview:
-                    reply_text += f"\n\n{overview}"
-                else:
-                    reply_text += f"\n\nOverview not found for {disease_name}."
-            else:
-                reply_text += f"\n\nDisease not found in WHO database: {disease_name}"
+                if intent_name == "get_disease_overview":
+                    section = fetch_overview(url, disease_param)
+                    response_text += f"\n\n{section}" if section else f"\n\nOverview not found for {disease_param}."
+                elif intent_name == "get_symptoms":
+                    section = fetch_symptoms(url, disease_param)
+                    response_text += f"\n\n{section}" if section else f"\n\nSymptoms not found for {disease_param}."
+                elif intent_name == "get_treatment":
+                    section = fetch_treatment(url, disease_param)
+                    response_text += f"\n\n{section}" if section else f"\n\nTreatment not found for {disease_param}."
+                elif intent_name == "get_prevention":
+                    section = fetch_prevention(url, disease_param)
+                    response_text += f"\n\n{section}" if section else f"\n\nPrevention not found for {disease_param}."
 
-        # Send Twilio response
+        # Outbreak intent
+        if intent_name == "disease_outbreak.general":
+            outbreaks = get_who_outbreak_data()
+            response_text += "\n\n" + "\n".join(outbreaks) if outbreaks else "\n\nUnable to fetch outbreak data."
+
+        # Vaccination intent
+        if intent_name == "get_vaccine":
+            birth_date = datetime.date.today()
+            schedule = build_polio_schedule(birth_date)
+            response_text += "\n\n💉 Polio Vaccination Schedule\n"
+            for idx, (period, date, vaccine) in enumerate(schedule):
+                emoji = VACC_EMOJIS[idx % len(VACC_EMOJIS)]
+                response_text += f"{emoji} {period}: {date.strftime('%d-%b-%Y')} → {vaccine}\n"
+
+        # Translate back to user language
+        response_text = translate_from_english(response_text, user_lang)
+
+        # ------------------- Send via Twilio -------------------
         twilio_resp = MessagingResponse()
-        twilio_resp.message(reply_text)
+        twilio_resp.message(response_text)
         return str(twilio_resp)
 
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         twilio_resp = MessagingResponse()
         twilio_resp.message("⚠️ Something went wrong. Please try again later.")
         return str(twilio_resp)
 
-    except Exception as e:
-        traceback.print_exc()
-        twilio_resp = MessagingResponse()
-        twilio_resp.message("⚠️ Something went wrong. Please try again later.")
-        return str(twilio_resp)
+
 
 
 # ----------------------
