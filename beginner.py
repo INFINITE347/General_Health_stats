@@ -2076,6 +2076,8 @@ from psycopg2.extras import Json
 import psycopg2
 import os
 import traceback
+import json
+from twilio.twiml.messaging_response import MessagingResponse
 
 app = Flask(__name__)
 DetectorFactory.seed = 0  # deterministic language detection
@@ -2568,8 +2570,45 @@ def webhook():
 
     save_user_memory(user_id, memory)
     return jsonify({"fulfillmentText": response_text})
+# -------------------
+# Twilio WhatsApp Webhook (reuses /webhook)
+@app.route("/whatsapp_webhook", methods=["POST"])
+def whatsapp_webhook():
+    try:
+        incoming_msg = request.form.get("Body")
+        from_number = request.form.get("From")
+        session_id = from_number or "default_user"
 
+        fake_req = {
+            "session": session_id,
+            "queryResult": {"intent": {"displayName": "Default Fallback Intent"}, "parameters": {"any": incoming_msg}},
+            "originalDetectIntentRequest": {"payload": {"user": {"userId": session_id}}}
+        }
 
-# -------- Run Flask --------
+        with app.test_request_context(json=fake_req):
+            resp, status = webhook()
+            if isinstance(resp, tuple):
+                resp, status = resp
+            else:
+                status = 200
+            result = resp.get_json()
+
+                                    
+
+        reply_text = result.get("fulfillmentText", "🤔 Sorry, I didn’t understand that.")
+        twilio_resp = MessagingResponse()
+        twilio_resp.message(reply_text)
+        return str(twilio_resp)
+
+    except Exception as e:
+        print("WhatsApp Webhook Error:", e)
+        twilio_resp = MessagingResponse()
+        twilio_resp.message("⚠️ Something went wrong. Please try again later.")
+        return str(twilio_resp)
+
+# -------------------
+# Run Flask app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+
