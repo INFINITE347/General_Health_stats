@@ -2579,21 +2579,25 @@ def whatsapp_webhook():
         from_number = request.form.get("From")
         session_id = from_number or "default_user"
 
+        # Build a fake Dialogflow-like request
         fake_req = {
             "session": session_id,
-            "queryResult": {"intent": {"displayName": "Default Fallback Intent"}, "parameters": {"any": incoming_msg}},
-            "originalDetectIntentRequest": {"payload": {"user": {"userId": session_id}}}
+            "queryResult": {
+                "intent": {"displayName": "Default Fallback Intent"},
+                "parameters": {"any": incoming_msg}
+            },
+            "originalDetectIntentRequest": {
+                "payload": {"user": {"userId": session_id}}
+            }
         }
 
         with app.test_request_context(json=fake_req):
-            resp, status = webhook()
+            resp = webhook()
             if isinstance(resp, tuple):
                 resp, status = resp
             else:
                 status = 200
             result = resp.get_json()
-
-                                    
 
         reply_text = result.get("fulfillmentText", "🤔 Sorry, I didn’t understand that.")
         twilio_resp = MessagingResponse()
@@ -2601,10 +2605,13 @@ def whatsapp_webhook():
         return str(twilio_resp)
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print("WhatsApp Webhook Error:", e)
         twilio_resp = MessagingResponse()
         twilio_resp.message("⚠️ Something went wrong. Please try again later.")
         return str(twilio_resp)
+
 
 # -------------------
 # Run Flask app
