@@ -2572,6 +2572,8 @@ def webhook():
     return jsonify({"fulfillmentText": response_text})
 # -------------------
 # Twilio WhatsApp Webhook (reuses /webhook)
+PROJECT_ID = os.getenv("DIALOGFLOW_PROJECT_ID")
+
 @app.route("/whatsapp_webhook", methods=["POST"])
 def whatsapp_webhook():
     try:
@@ -2579,27 +2581,18 @@ def whatsapp_webhook():
         from_number = request.form.get("From")
         session_id = from_number or "default_user"
 
-        # Build a fake Dialogflow-like request
-        fake_req = {
-            "session": session_id,
-            "queryResult": {
-                "intent": {"displayName": "Default Fallback Intent"},
-                "parameters": {"any": incoming_msg}
-            },
-            "originalDetectIntentRequest": {
-                "payload": {"user": {"userId": session_id}}
-            }
-        }
+        # Send message text to Dialogflow
+        session_client = dialogflow.SessionsClient(credentials=credentials)
+        session = session_client.session_path(PROJECT_ID, session_id)
 
-        with app.test_request_context(json=fake_req):
-            resp = webhook()
-            if isinstance(resp, tuple):
-                resp, status = resp
-            else:
-                status = 200
-            result = resp.get_json()
+        text_input = dialogflow.TextInput(text=incoming_msg, language_code="en")
+        query_input = dialogflow.QueryInput(text=text_input)
 
-        reply_text = result.get("fulfillmentText", "🤔 Sorry, I didn’t understand that.")
+        response = session_client.detect_intent(session=session, query_input=query_input)
+
+        # Extract fulfillment text
+        reply_text = response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand."
+
         twilio_resp = MessagingResponse()
         twilio_resp.message(reply_text)
         return str(twilio_resp)
@@ -2607,10 +2600,10 @@ def whatsapp_webhook():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print("WhatsApp Webhook Error:", e)
         twilio_resp = MessagingResponse()
         twilio_resp.message("⚠️ Something went wrong. Please try again later.")
         return str(twilio_resp)
+
 
 
 # -------------------
