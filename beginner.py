@@ -2578,53 +2578,69 @@ def webhook():
 # ----------------------
 # Dialogflow setup
 # ----------------------
-PROJECT_ID = os.getenv("DIALOGFLOW_PROJECT_ID")  # Your Dialogflow project ID
-google_creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")  # Full JSON key as string
+# ------------------- Dialogflow Setup -------------------
+PROJECT_ID = os.getenv("DIALOGFLOW_PROJECT_ID")  # Your Dialogflow Project ID
+google_creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")  # JSON Key as string
 
 if not PROJECT_ID or not google_creds_json:
     raise ValueError("❌ Missing DIALOGFLOW_PROJECT_ID or GOOGLE_CREDENTIALS_JSON env variables")
 
 credentials_info = json.loads(google_creds_json)
 GOOGLE_CREDENTIALS = service_account.Credentials.from_service_account_info(credentials_info)
-
-
 def detect_intent_text(session_id, text, language_code="en"):
-    """
-    Send text to Dialogflow and get the fulfillment response
-    """
     try:
         session_client = dialogflow.SessionsClient(credentials=GOOGLE_CREDENTIALS)
         session = session_client.session_path(PROJECT_ID, session_id)
         text_input = dialogflow.TextInput(text=text, language_code=language_code)
         query_input = dialogflow.QueryInput(text=text_input)
-
         response = session_client.detect_intent(session=session, query_input=query_input)
-        return response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand."
+        parameters = MessageToDict(response.query_result.parameters)
+        disease_name = parameters.get("disease")
+        return {
+            "fulfillment_text": response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand.",
+            "parameters": parameters,
+            "disease": disease_name
+        }
     except Exception:
         traceback.print_exc()
-        return "⚠️ Something went wrong while connecting to Dialogflow."
+        return {
+            "fulfillment_text": "⚠️ Something went wrong while connecting to Dialogflow.",
+            "parameters": {},
+            "disease": None
+        }
 
-
-# ----------------------
-# WhatsApp webhook
-# ----------------------
+# ------------------- WhatsApp Webhook -------------------
 @app.route("/whatsapp_webhook", methods=["POST"])
 def whatsapp_webhook():
     try:
-        incoming_msg = request.form.get("Body")       # Message from user
-        from_number = request.form.get("From")        # User's WhatsApp number
+        incoming_msg = request.form.get("Body")
+        from_number = request.form.get("From")
         session_id = from_number or "default_user"
 
-        # Send message to Dialogflow
-        reply_text = detect_intent_text(session_id, incoming_msg)
+        # Call Dialogflow
+        result = detect_intent_text(session_id, incoming_msg)
+        reply_text = result["fulfillment_text"]
 
-        # Send response back to WhatsApp
+        # If a disease was detected, fetch overview from WHO
+        if result["disease"]:
+            disease_name = result["disease"]
+            slug = get_slug(disease_name)
+            if slug:
+                url = f"https://www.who.int/news-room/fact-sheets/detail/{slug}"
+                overview = fetch_overview(url, disease_name)
+                if overview:
+                    reply_text += f"\n\n{overview}"
+                else:
+                    reply_text += f"\n\nOverview not found for {disease_name}."
+            else:
+                reply_text += f"\n\nDisease not found in WHO database: {disease_name}."
+
+        # Send reply via Twilio
         twilio_resp = MessagingResponse()
         twilio_resp.message(reply_text)
         return str(twilio_resp)
 
     except Exception as e:
-        print("WhatsApp Webhook Error:", e)
         traceback.print_exc()
         twilio_resp = MessagingResponse()
         twilio_resp.message("⚠️ Something went wrong. Please try again later.")
