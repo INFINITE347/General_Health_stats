@@ -2564,7 +2564,7 @@ def webhook():
                 response_text = "Your last queries:\n" + '\n'.join(lines)
 
         elif intent_name == "Default Fallback Intent":
-            response_text = "🤔 Sorry, I couldn't understand that."
+            response_text = " "
 
         # Translate final response if user_lang != en
         response_text = translate_from_english(response_text, user_lang)
@@ -2604,7 +2604,7 @@ def detect_intent_text(session_id, text, language_code="en"):
         response = session_client.detect_intent(session=session, query_input=query_input)
 
         # Extract safely
-        fulfillment_text = response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand."
+        fulfillment_text = response.query_result.fulfillment_text or " "
         intent_name = response.query_result.intent.display_name if response.query_result.intent else ""
         # Make sure parameters is always a dict
         try:
