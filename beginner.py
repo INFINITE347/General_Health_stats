@@ -2574,49 +2574,77 @@ def webhook():
     save_user_memory(user_id, memory)
     return jsonify({"fulfillmentText": response_text})
 # -------------------
-# Twilio WhatsApp Webhook (reuses /webhook)
-PROJECT_ID = os.getenv("DIALOGFLOW_PROJECT_ID")
+import os
+import json
+from flask import Flask, request
+from twilio.twiml.messaging_response import MessagingResponse
+from google.cloud import dialogflow_v2 as dialogflow
+from google.oauth2 import service_account
+import traceback
+
+app = Flask(__name__)
+
+# ----------------------
+# Dialogflow setup
+# ----------------------
+PROJECT_ID = os.getenv("DIALOGFLOW_PROJECT_ID")  # Your Dialogflow project ID
+google_creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")  # Full JSON key as string
+
+if not PROJECT_ID or not google_creds_json:
+    raise ValueError("❌ Missing DIALOGFLOW_PROJECT_ID or GOOGLE_CREDENTIALS_JSON env variables")
+
 credentials_info = json.loads(google_creds_json)
 GOOGLE_CREDENTIALS = service_account.Credentials.from_service_account_info(credentials_info)
 
 
+def detect_intent_text(session_id, text, language_code="en"):
+    """
+    Send text to Dialogflow and get the fulfillment response
+    """
+    try:
+        session_client = dialogflow.SessionsClient(credentials=GOOGLE_CREDENTIALS)
+        session = session_client.session_path(PROJECT_ID, session_id)
+        text_input = dialogflow.TextInput(text=text, language_code=language_code)
+        query_input = dialogflow.QueryInput(text=text_input)
+
+        response = session_client.detect_intent(session=session, query_input=query_input)
+        return response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand."
+    except Exception:
+        traceback.print_exc()
+        return "⚠️ Something went wrong while connecting to Dialogflow."
+
+
+# ----------------------
+# WhatsApp webhook
+# ----------------------
 @app.route("/whatsapp_webhook", methods=["POST"])
 def whatsapp_webhook():
     try:
-        incoming_msg = request.form.get("Body")
-        from_number = request.form.get("From")
+        incoming_msg = request.form.get("Body")       # Message from user
+        from_number = request.form.get("From")        # User's WhatsApp number
         session_id = from_number or "default_user"
 
-        # Create a Dialogflow session client
-        session_client = dialogflow.SessionsClient(credentials=GOOGLE_CREDENTIALS)
-        session = session_client.session_path(PROJECT_ID, session_id)
+        # Send message to Dialogflow
+        reply_text = detect_intent_text(session_id, incoming_msg)
 
-        # Build query
-        text_input = dialogflow.TextInput(text=incoming_msg, language_code="en")
-        query_input = dialogflow.QueryInput(text=text_input)
-
-        # Send to Dialogflow
-        response = session_client.detect_intent(session=session, query_input=query_input)
-        reply_text = response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand."
-
-        # Respond via Twilio
+        # Send response back to WhatsApp
         twilio_resp = MessagingResponse()
         twilio_resp.message(reply_text)
         return str(twilio_resp)
 
     except Exception as e:
-        import traceback
+        print("WhatsApp Webhook Error:", e)
         traceback.print_exc()
         twilio_resp = MessagingResponse()
         twilio_resp.message("⚠️ Something went wrong. Please try again later.")
         return str(twilio_resp)
 
 
-
-
-# -------------------
+# ----------------------
 # Run Flask app
+# ----------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
