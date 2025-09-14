@@ -2591,25 +2591,41 @@ credentials_info = json.loads(google_creds_json)
 GOOGLE_CREDENTIALS = service_account.Credentials.from_service_account_info(credentials_info)
 def detect_intent_text(session_id, text, language_code="en"):
     """
-    Send text to Dialogflow and get the fulfillment response
+    Send text to Dialogflow and get the fulfillment response.
+    Always returns dict with fulfillment_text, intent, and parameters.
     """
     try:
         session_client = dialogflow.SessionsClient(credentials=GOOGLE_CREDENTIALS)
         session = session_client.session_path(PROJECT_ID, session_id)
+
         text_input = dialogflow.TextInput(text=text, language_code=language_code)
         query_input = dialogflow.QueryInput(text=text_input)
 
         response = session_client.detect_intent(session=session, query_input=query_input)
 
-        # Extract parameters safely
-        parameters = dict(response.query_result.parameters)
-        disease_name = parameters.get("disease") or parameters.get("any")
+        # Extract safely
+        fulfillment_text = response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand."
+        intent_name = response.query_result.intent.display_name if response.query_result.intent else ""
+        # Make sure parameters is always a dict
+        try:
+            parameters = dict(response.query_result.parameters) if response.query_result.parameters else {}
+        except Exception:
+            parameters = {}
 
-        return response.query_result.fulfillment_text or "🤔 Sorry, I didn’t understand.", disease_name
+        return {
+            "fulfillment_text": fulfillment_text,
+            "intent": intent_name,
+            "parameters": parameters
+        }
 
     except Exception:
         traceback.print_exc()
-        return "⚠️ Something went wrong while connecting to Dialogflow.", None
+        return {
+            "fulfillment_text": "⚠️ Something went wrong while connecting to Dialogflow.",
+            "intent": "",
+            "parameters": {}
+        }
+
 
 
 # ------------------- WhatsApp Webhook -------------------
@@ -2640,9 +2656,12 @@ def whatsapp_webhook():
         english_text = translate_to_english(incoming_msg, detected_lang)
 
         # ------------------- Dialogflow Intent -------------------
-        fulfillment_text, parameters = detect_intent_text(session_id, english_text)
+        df_result = detect_intent_text(session_id, english_text)
+
+        fulfillment_text = df_result.get("fulfillment_text", "")
+        parameters = df_result.get("parameters", {}) or {}
+        intent_name = df_result.get("intent", "")
         disease_param = parameters.get("disease") or memory.get("last_disease", "")
-        intent_name = parameters.get("intent") or ""  # You can optionally store intent in parameters
 
         # Update persistent memory
         memory["last_disease"] = disease_param
