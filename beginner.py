@@ -2675,7 +2675,7 @@ def whatsapp_webhook():
         save_user_memory(session_id, memory)
 
         # ------------------- Build Response -------------------
-        response_text = fulfillment_text or "🤔 Sorry, I didn't understand that."
+        response_text = fulfillment_text or " "
 
         # Disease-related intents
         if disease_param:
